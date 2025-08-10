@@ -1,467 +1,1361 @@
-<!doctype html>
-<html lang="ar">
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>من المجرم المطلوب — لعبة</title>
-  <style>
-    :root{--bg:#f7f7f9;--card:#fff;--accent:#0b5;--red:#ff6868;--blue:#5aa0ff}
-    html,body{height:100%;margin:0;font-family:Segoe UI, Tahoma, Arial;direction:rtl}
-    .app{min-height:100%;display:flex;flex-direction:column;background:var(--bg);padding:12px}
-    header{display:flex;align-items:center;justify-content:space-between;padding:12px 8px}
-    header h1{margin:0;font-size:1.3rem}
-    .container{max-width:1100px;margin:8px auto;background:transparent}
-    .card{background:var(--card);border-radius:12px;padding:14px;box-shadow:0 6px 18px rgba(0,0,0,.06)}
-    .row{display:flex;gap:12px;align-items:center}
-    .col{flex:1}
-    input[type=text]{width:100%;padding:10px;border-radius:8px;border:1px solid #ddd;font-size:0.95rem}
-    button{padding:10px 14px;border-radius:8px;border:0;background:#222;color:#fff;cursor:pointer}
-    .small{font-size:0.85rem}
-    .room-code{font-size:2.4rem;font-weight:700;letter-spacing:6px;text-align:center}
-    .players-area{display:flex;gap:12px;margin-top:12px}
-    .team{flex:1;padding:10px;border-radius:10px}
-    .team.red{background:rgba(255,104,104,0.09);border:1px solid rgba(255,104,104,0.12)}
-    .team.blue{background:rgba(90,160,255,0.07);border:1px solid rgba(90,160,255,0.12)}
-    .players-list{min-height:60px}
-    .cards-wrap{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
-    .card-item{width:calc(20% - 10px);min-width:120px;background:#fff;border-radius:10px;padding:8px;text-align:center;box-shadow:0 4px 10px rgba(0,0,0,.06)}
-    .card-item img{width:100%;height:100px;object-fit:cover;border-radius:6px}
-    .card-footer{display:flex;justify-content:space-between;align-items:center;margin-top:6px}
-    .icon-btn{background:transparent;border:0;cursor:pointer;font-size:1.1rem}
-    .selected-badge{display:inline-block;padding:6px;border-radius:8px;background:#222;color:#fff;font-size:0.8rem}
-    .status{margin-top:8px}
-    .controls{display:flex;gap:8px;justify-content:center;margin-top:12px}
-    @media (max-width:900px){.card-item{width:calc(33% - 10px)}header h1{font-size:1.1rem}.room-code{font-size:1.6rem}}
-    @media (max-width:560px){.card-item{width:calc(50% - 10px)}.players-area{flex-direction:column}}
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>من المجرم المطلوب</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+            transition: background 0.5s ease;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .game-title {
+            text-align: center;
+            color: white;
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 30px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .welcome-screen {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            text-align: center;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+            text-align: right;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #555;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            font-size: 16px;
+            text-align: right;
+            transition: border-color 0.3s;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .btn-join {
+            background: linear-gradient(45deg, #28a745, #20c997);
+        }
+
+        .btn-join:hover {
+            background: linear-gradient(45deg, #218838, #1ba085);
+        }
+
+        .btn-create {
+            background: linear-gradient(45deg, #007bff, #6610f2);
+        }
+
+        .btn-create:hover {
+            background: linear-gradient(45deg, #0056b3, #520dc2);
+        }
+
+        .btn-default {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+        }
+
+        .btn-default:hover {
+            background: linear-gradient(45deg, #5a6fd8, #6a4190);
+        }
+
+        .btn-danger {
+            background: linear-gradient(45deg, #dc3545, #e83e8c);
+        }
+
+        .btn-danger:hover {
+            background: linear-gradient(45deg, #c82333, #d91a72);
+        }
+
+        .btn-success {
+            background: linear-gradient(45deg, #28a745, #17a2b8);
+        }
+
+        .btn-success:hover {
+            background: linear-gradient(45deg, #218838, #138496);
+        }
+
+        .room-info {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 30px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .room-code {
+            font-size: 3rem;
+            font-weight: bold;
+            color: #667eea;
+            margin: 20px 0;
+            letter-spacing: 5px;
+        }
+
+        .room-link {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 10px;
+            word-break: break-all;
+            margin: 15px 0;
+            font-family: monospace;
+        }
+
+        .players-list {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .player-item {
+            background: #f8f9fa;
+            padding: 10px 15px;
+            margin: 5px 0;
+            border-radius: 8px;
+            border-right: 4px solid #667eea;
+        }
+
+        .team-selection {
+            display: flex;
+            justify-content: space-around;
+            margin: 30px 0;
+            flex-wrap: wrap;
+        }
+
+        .team-box {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin: 10px;
+            flex: 1;
+            min-width: 250px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .team-red {
+            border-top: 5px solid #dc3545;
+        }
+
+        .team-blue {
+            border-top: 5px solid #007bff;
+        }
+
+        .team-title {
+            text-align: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+
+        .red-team { color: #dc3545; }
+        .blue-team { color: #007bff; }
+
+        .role-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .role-btn {
+            padding: 12px;
+            border: 2px solid #ddd;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .role-btn:hover {
+            background: #f8f9fa;
+        }
+
+        .role-btn.selected {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .game-area {
+            display: none;
+        }
+
+        .game-header {
+            text-align: center;
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .turn-indicator {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .selection-count {
+            font-size: 1.2rem;
+            color: #666;
+        }
+
+        .criminals-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .criminal-card {
+            background: white;
+            border-radius: 15px;
+            padding: 15px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .criminal-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        }
+
+        .criminal-card.selected {
+            border: 3px solid #28a745;
+            background: #f8fff9;
+        }
+
+        .criminal-card.target {
+            border: 3px solid #dc3545 !important;
+            background: #fff5f5 !important;
+        }
+
+        .criminal-image {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            margin: 0 auto 15px;
+            background: #ddd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            color: #666;
+        }
+
+        .criminal-name {
+            font-size: 1.1rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .select-btn {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+            font-size: 1.2rem;
+            transition: all 0.2s;
+        }
+
+        .select-btn:hover {
+            background: #218838;
+            transform: scale(1.1);
+        }
+
+        .voters-list {
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 10px;
+            min-height: 20px;
+        }
+
+        .teams-display {
+            display: flex;
+            justify-content: space-between;
+            margin: 20px 0;
+            gap: 20px;
+        }
+
+        .team-display {
+            flex: 1;
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+        }
+
+        .team-display.red {
+            border-right: 5px solid #dc3545;
+        }
+
+        .team-display.blue {
+            border-right: 5px solid #007bff;
+        }
+
+        .game-controls {
+            text-align: center;
+            margin: 30px 0;
+        }
+
+        .witness-controls {
+            background: #fff3cd;
+            border: 2px solid #ffeaa7;
+            border-radius: 15px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .witness-btn {
+            background: #f39c12;
+            color: white;
+            border: none;
+            padding: 15px 25px;
+            border-radius: 10px;
+            font-size: 16px;
+            margin: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .witness-btn:hover {
+            background: #e67e22;
+            transform: translateY(-2px);
+        }
+
+        .victory-screen {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .certificate {
+            background: linear-gradient(45deg, #f39c12, #e67e22);
+            color: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin: 20px 0;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .red-turn {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%) !important;
+        }
+
+        .blue-turn {
+            background: linear-gradient(135deg, #4ecdc4 0%, #44a08d 100%) !important;
+        }
+
+        @media (max-width: 768px) {
+            .game-title {
+                font-size: 2rem;
+            }
+            
+            .criminals-grid {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                gap: 15px;
+            }
+            
+            .teams-display {
+                flex-direction: column;
+            }
+            
+            .team-selection {
+                flex-direction: column;
+            }
+        }
+    </style>
 </head>
 <body>
-  <div class="app">
-    <header class="card">
-      <h1>من "المجرم" المطلوب</h1>
-      <div class="small">لعبة بسيطة، جميلة وسهلة الاستخدام — للجوال والكمبيوتر</div>
-    </header>
+    <div class="container">
+        <h1 class="game-title">🕵️ من المجرم المطلوب 🔍</h1>
 
-    <main class="container">
-      <!-- شاشة الانشاء والدخول -->
-      <section id="lobby" class="card">
-        <div class="row">
-          <div class="col">
-            <label>اسم اللاعب</label>
-            <input id="playerName" type="text" placeholder="اكتب اسمك هنا" />
-          </div>
-          <div style="width:16px"></div>
-          <div style="width:200px">
-            <label>رمز الغرفة</label>
-            <input id="roomCodeInput" type="text" placeholder="رمز الغرفة" />
-          </div>
-          <div style="width:12px"></div>
-          <div style="display:flex;flex-direction:column;gap:8px">
-            <button id="createRoomBtn">إنشاء غرفة جديدة</button>
-            <button id="joinRoomBtn">دخول الغرفة</button>
-          </div>
-        </div>
-        <div id="roomInfo" style="margin-top:12px;display:none">
-          <div class="room-code" id="roomCodeDisplay"></div>
-          <div class="small">رابط الغرفة: <a id="roomLink" href="#"></a></div>
-        </div>
-      </section>
-
-      <!-- شاشة الغرفة -->
-      <section id="room" class="card" style="margin-top:12px;display:none">
-        <div class="row">
-          <div class="col">
-            <div class="players-area">
-              <div class="team red">
-                <div style="font-weight:700">الفريق الأحمر</div>
-                <div class="players-list" id="redList"></div>
-              </div>
-              <div class="team blue">
-                <div style="font-weight:700">الفريق الأزرق</div>
-                <div class="players-list" id="blueList"></div>
-              </div>
+        <!-- Welcome Screen -->
+        <div id="welcomeScreen" class="welcome-screen">
+            <div class="input-group">
+                <label for="playerName">اسم اللاعب</label>
+                <input type="text" id="playerName" placeholder="أدخل اسمك">
             </div>
-          </div>
-          <div style="width:220px">
-            <div style="display:flex;flex-direction:column;gap:8px">
-              <div class="small">أنت: <span id="meName"></span></div>
-              <label>اختر فريقك</label>
-              <select id="teamSelect">
-                <option value="red">أحمر</option>
-                <option value="blue">أزرق</option>
-              </select>
-              <label>دورك</label>
-              <select id="roleSelect">
-                <option value="investigator">محقق</option>
-                <option value="witness">شاهد عيان</option>
-              </select>
-              <button id="setRoleBtn">تثبيت الفريق والدور</button>
-              <div style="height:8px"></div>
-              <button id="startGameBtn">بدء اللعب</button>
-              <button id="leaveRoomBtn" style="background:#c33">مغادرة الغرفة</button>
+            
+            <div class="input-group">
+                <label for="roomCode">رمز الغرفة</label>
+                <input type="text" id="roomCode" placeholder="أدخل رمز الغرفة للانضمام">
             </div>
-          </div>
+            
+            <button class="btn btn-join" onclick="joinRoom()">انضمام للغرفة</button>
+            <button class="btn btn-create" onclick="createRoom()">إنشاء غرفة جديدة</button>
         </div>
 
-        <div id="gameArea" style="margin-top:12px;display:none" class="card">
-          <div id="turnBanner" style="padding:10px;border-radius:8px;text-align:center;font-weight:700">الدور: <span id="turnText">--</span></div>
-          <div class="status small">عدد الاختيارات المتبقية لهذا الدور: <span id="remainingSelect">-</span></div>
+        <!-- Room Screen -->
+        <div id="roomScreen" class="hidden">
+            <div class="room-info">
+                <h2>غرفة اللعب</h2>
+                <div class="room-code" id="displayRoomCode"></div>
+                <div class="room-link" id="roomLink"></div>
+                <button class="btn btn-default" onclick="copyRoomLink()">نسخ الرابط</button>
+            </div>
 
-          <div class="cards-wrap" id="cardsWrap"></div>
+            <div class="players-list">
+                <h3>اللاعبون المتصلون</h3>
+                <div id="playersList"></div>
+                <button class="btn btn-success" id="startGameBtn" onclick="startGame()" style="display: none;">بدء اللعبة</button>
+            </div>
 
-          <div class="controls">
-            <button id="endSelectionBtn">إنهاء الاختيار</button>
-          </div>
+            <button class="btn btn-danger" onclick="leaveRoom()">مغادرة الغرفة</button>
         </div>
 
-      </section>
+        <!-- Team Selection Screen -->
+        <div id="teamScreen" class="hidden">
+            <!-- Criminal Display -->
+            <div class="team-box" style="background: linear-gradient(45deg, #ff6b6b, #ee5a52); color: white; margin-bottom: 30px;">
+                <div class="team-title" style="color: white;">🔴 المجرم المطلوب 🔴</div>
+                <div id="criminalName" style="font-size: 2rem; font-weight: bold; margin: 15px 0; text-shadow: 2px 2px 4px rgba(0,0,0,0.5);">لم يتم اختيار المجرم بعد</div>
+                <div id="criminalMessage" style="font-size: 1.2rem; margin: 10px 0; font-weight: bold;">سيتم اختيار المجرم عشوائياً من اللاعبين</div>
+                <div style="font-size: 1rem; margin-top: 15px; background: rgba(255,255,255,0.2); padding: 10px; border-radius: 10px;">
+                    ⚠️ المجرم لا يمكنه الانضمام لأي فريق - سيلعب ضد الجميع
+                </div>
+            </div>
 
-      <!-- شاشة النهاية -->
-      <section id="endScreen" class="card" style="margin-top:12px;display:none;text-align:center">
-        <h2>تهانينا! فريق المحققين انتصر</h2>
-        <p>شهادة تقدير من المحكمة العليا باسم الفريق: <span id="winnerName"></span></p>
-        <button id="newGameBtn">بدء لعبة جديدة (للعودة إلى رمز الغرفة)</button>
-      </section>
+            <div class="team-selection">
+                <div class="team-box team-red">
+                    <div class="team-title red-team">الفريق الأحمر</div>
+                    <div class="role-buttons">
+                        <button class="role-btn" onclick="selectRole('red', 'detective')">محقق</button>
+                        <button class="role-btn" onclick="selectRole('red', 'witness')">شاهد عيان</button>
+                    </div>
+                    <div id="redTeamMembers"></div>
+                </div>
 
-    </main>
+                <div class="team-box team-blue">
+                    <div class="team-title blue-team">الفريق الأزرق</div>
+                    <div class="role-buttons">
+                        <button class="role-btn" onclick="selectRole('blue', 'detective')">محقق</button>
+                        <button class="role-btn" onclick="selectRole('blue', 'witness')">شاهد عيان</button>
+                    </div>
+                    <div id="blueTeamMembers"></div>
+                </div>
+            </div>
 
-    <footer style="text-align:center;padding:12px;color:#666">تصميم وتكامل مع Firebase — ضع صور المجرمين بنفس المجلد بالاسم: creminal1.jpg ... creminal10.jpg</footer>
-  </div>
+            <div style="text-align: center;">
+                <button class="btn btn-default" id="readyBtn" onclick="playerReady()" style="display: none;">جاهز للعب</button>
+                <button class="btn btn-success" id="startGameBtn2" onclick="startActualGame()" style="display: none;">بدء اللعبة</button>
+            </div>
+        </div>
 
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-  <script>
-    // تهيئة فايربيس باستخدام الإعداد الذي أرسلته
-    const firebaseConfig = {
-      apiKey: "AIzaSyAcIwwapktH2nxyZczVKFacTrLh1o-EgdM",
-      authDomain: "shakkak-8f90f.firebaseapp.com",
-      databaseURL: "https://shakkak-8f90f-default-rtdb.firebaseio.com",
-      projectId: "shakkak-8f90f",
-      storageBucket: "shakkak-8f90f.firebasestorage.app",
-      messagingSenderId: "1039276785290",
-      appId: "1:1039276785290:web:ed874a451b37fb3210f773",
-      measurementId: "G-QRH0Z1HM5R"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
+        <!-- Criminal Position Selection -->
+        <div id="criminalSelectionScreen" class="game-area hidden">
+            <div class="game-header">
+                <div class="turn-indicator">اختر موقعك في البطاقات</div>
+                <div class="selection-count">انقر على البطاقة التي تريد أن تكون فيها</div>
+                <div style="color: #dc3545; font-weight: bold; margin-top: 10px;">
+                    عدد مرات التغيير المتبقية: <span id="movesLeft">2</span>
+                </div>
+            </div>
 
-    // عناصر DOM
-    const createRoomBtn = document.getElementById('createRoomBtn');
-    const joinRoomBtn = document.getElementById('joinRoomBtn');
-    const roomCodeInput = document.getElementById('roomCodeInput');
-    const playerNameInput = document.getElementById('playerName');
-    const roomInfo = document.getElementById('roomInfo');
-    const roomCodeDisplay = document.getElementById('roomCodeDisplay');
-    const roomLink = document.getElementById('roomLink');
+            <div class="criminals-grid" id="criminalPositionGrid"></div>
 
-    const lobby = document.getElementById('lobby');
-    const roomSection = document.getElementById('room');
-    const meNameSpan = document.getElementById('meName');
-    const redList = document.getElementById('redList');
-    const blueList = document.getElementById('blueList');
-    const teamSelect = document.getElementById('teamSelect');
-    const roleSelect = document.getElementById('roleSelect');
-    const setRoleBtn = document.getElementById('setRoleBtn');
-    const startGameBtn = document.getElementById('startGameBtn');
-    const leaveRoomBtn = document.getElementById('leaveRoomBtn');
+            <div class="game-controls">
+                <button class="btn btn-success" id="confirmPositionBtn" onclick="confirmCriminalPosition()" style="display: none;">تأكيد الموقع</button>
+            </div>
+        </div>
 
-    const gameArea = document.getElementById('gameArea');
-    const cardsWrap = document.getElementById('cardsWrap');
-    const turnBanner = document.getElementById('turnBanner');
-    const turnText = document.getElementById('turnText');
-    const remainingSelect = document.getElementById('remainingSelect');
-    const endSelectionBtn = document.getElementById('endSelectionBtn');
+        <!-- Game Screen -->
+        <div id="gameScreen" class="game-area hidden">
+            <div class="game-header">
+                <div class="turn-indicator" id="turnIndicator">دور الفريق الأحمر</div>
+                <div class="selection-count" id="selectionCount">اختر 5 مشتبه بهم</div>
+            </div>
 
-    const endScreen = document.getElementById('endScreen');
-    const winnerName = document.getElementById('winnerName');
-    const newGameBtn = document.getElementById('newGameBtn');
+            <!-- Criminal Controls -->
+            <div id="criminalControls" class="witness-controls hidden" style="background: #ffebee; border-color: #f8bbd9;">
+                <h3>🔴 أنت المجرم المطلوب</h3>
+                <p>موقعك الحالي: <span id="currentPosition"></span></p>
+                <p>مرات التغيير المتبقية: <span id="remainingMoves">2</span></p>
+                <button class="witness-btn" id="changePosBtn" onclick="changeCriminalPosition()" style="background: #dc3545;">تغيير الموقع</button>
+            </div>
 
-    // حالة محلية
-    let currentRoom = null;
-    let myId = null;
-    let myName = '';
+            <div class="teams-display">
+                <div class="team-display red">
+                    <h3 class="red-team">الفريق الأحمر</h3>
+                    <div id="redTeamDisplay"></div>
+                </div>
+                <div class="team-display blue">
+                    <h3 class="blue-team">الفريق الأزرق</h3>
+                    <div id="blueTeamDisplay"></div>
+                </div>
+            </div>
 
-    // توليد كود غرفة ست عشري بسيط
-    function genRoomCode(){
-      return Math.random().toString(36).slice(2,8).toUpperCase();
-    }
+            <div class="criminals-grid" id="criminalsGrid"></div>
 
-    function showMessage(msg){alert(msg)}
+            <div class="game-controls">
+                <button class="btn btn-default" id="finishTurnBtn" onclick="finishTurn()">إنهاء الدور</button>
+            </div>
 
-    // إنشاء غرفة
-    createRoomBtn.addEventListener('click',async ()=>{
-      const name = playerNameInput.value.trim();
-      if(!name)return showMessage('اكتب اسمك قبل إنشاء الغرفة');
-      myName = name; myId = 'p_'+Date.now()+Math.floor(Math.random()*999);
-      const code = genRoomCode();
-      currentRoom = code;
-      const roomRef = db.ref('rooms/'+code);
-      // تهيئة بيانات الغرفة
-      await roomRef.set({
-        createdAt: firebase.database.ServerValue.TIMESTAMP,
-        state: 'waiting',
-        owner: myId,
-        players: {
-          [myId]:{name:myName,team:'red',role:'investigator'}
+            <div id="witnessControls" class="witness-controls hidden">
+                <h3>شاهد العيان - هل المجرم ضمن المحددين؟</h3>
+                <button class="witness-btn" onclick="witnessResponse(true)">نعم، ضمن المحددين</button>
+                <button class="witness-btn" onclick="witnessResponse(false)">لا، ليس ضمن المحددين</button>
+            </div>
+        </div>
+
+        <!-- Victory Screen -->
+        <div id="victoryScreen" class="hidden">
+            <div class="victory-screen">
+                <h2>🎉 تهانينا! 🎉</h2>
+                <div class="certificate">
+                    <h3>شهادة تقدير من المحكمة العليا</h3>
+                    <p>يُشهد بأن فريق <span id="winningTeam"></span> قد نجح في القبض على المجرم المطلوب</p>
+                    <p>وأظهر مهارات تحقيقية متميزة</p>
+                </div>
+                <button class="btn btn-success" onclick="newGame()">لعبة جديدة</button>
+                <button class="btn btn-danger" onclick="leaveRoom()">مغادرة الغرفة</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAcIwwapktH2nxyZczVKFacTrLh1o-EgdM",
+            authDomain: "shakkak-8f90f.firebaseapp.com",
+            databaseURL: "https://shakkak-8f90f-default-rtdb.firebaseio.com",
+            projectId: "shakkak-8f90f",
+            storageBucket: "shakkak-8f90f.firebasestorage.app",
+            messagingSenderId: "123456789",
+            appId: "1:123456789:web:ed874a451b37fb3210f773",
+            measurementId: "G-QRH0Z1HM5R"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        // Game State
+        let currentRoom = null;
+        let currentPlayer = null;
+        let gameState = {
+            phase: 'waiting', // waiting, teams, criminalSelection, playing, witness, victory
+            currentTeam: 'red',
+            round: 1,
+            maxSelections: 5,
+            selectedCriminals: [],
+            targetCriminal: null,
+            criminal: null,
+            criminalPosition: null,
+            criminalMoves: 2,
+            teams: {
+                red: { detectives: [], witness: null },
+                blue: { detectives: [], witness: null }
+            }
+        };
+
+        // Criminal names
+        const criminals = [
+            'أحمد المشبوه', 'سارة الغامضة', 'محمد الخطير', 'فاطمة المجهولة', 'علي المطلوب',
+            'نور المختفية', 'حسن المراوغ', 'ليلى الماكرة', 'عمر الهارب', 'زينب المتخفية'
+        ];
+
+        function generateRoomCode() {
+            return Math.random().toString(36).substr(2, 6).toUpperCase();
         }
-      });
-      onEnterRoom();
-    });
 
-    // دخول غرفة
-    joinRoomBtn.addEventListener('click',async ()=>{
-      const name = playerNameInput.value.trim();
-      const code = roomCodeInput.value.trim().toUpperCase();
-      if(!name || !code) return showMessage('ادخل اسمك ورمز الغرفة');
-      myName = name; myId = 'p_'+Date.now()+Math.floor(Math.random()*999);
-      currentRoom = code;
-      const roomRef = db.ref('rooms/'+code+'/players/'+myId);
-      // أضف اللاعب
-      await roomRef.set({name:myName,team:'red',role:'investigator'});
-      onEnterRoom();
-    });
+        function createRoom() {
+            const playerName = document.getElementById('playerName').value.trim();
+            if (!playerName) {
+                alert('يرجى إدخال اسم اللاعب');
+                return;
+            }
 
-    async function onEnterRoom(){
-      lobby.style.display='none';
-      roomSection.style.display='block';
-      meNameSpan.textContent = myName;
-      // عرض رمز الغرفة
-      roomInfo.style.display='block';
-      roomCodeDisplay.textContent = currentRoom;
-      roomLink.href = location.href + '#room=' + currentRoom;
-      roomLink.textContent = location.href + '#room=' + currentRoom;
+            currentRoom = generateRoomCode();
+            currentPlayer = { name: playerName, isHost: true };
 
-      // استمع لتغييرات الغرفة
-      const roomRef = db.ref('rooms/'+currentRoom);
-      roomRef.on('value', snapshot =>{
-        const data = snapshot.val();
-        if(!data) return showMessage('تم إغلاق الغرفة');
-        // تحديث لائحة اللاعبين
-        const players = data.players||{};
-        renderPlayers(players);
-        // حالة اللعبة
-        const state = data.state||'waiting';
-        if(state === 'playing'){
-          roomSection.querySelector('#gameArea').style.display='block';
-          lobby.style.display='none';
-          gameArea.style.display='block';
-        }else{
-          gameArea.style.display='none';
+            const roomData = {
+                host: playerName,
+                players: { [playerName]: { name: playerName, isHost: true, ready: false } },
+                gameState: gameState,
+                createdAt: Date.now()
+            };
+
+            database.ref('rooms/' + currentRoom).set(roomData).then(() => {
+                showRoomScreen();
+                listenToRoom();
+            }).catch(error => {
+                console.error("Error creating room:", error);
+            });
         }
-        // بيانات اللعبة
-        if(data.game){
-          renderGame(data.game);
+
+        function joinRoom() {
+            const playerName = document.getElementById('playerName').value.trim();
+            const roomCode = document.getElementById('roomCode').value.trim().toUpperCase();
+
+            if (!playerName || !roomCode) {
+                alert('يرجى إدخال اسم اللاعب ورمز الغرفة');
+                return;
+            }
+
+            database.ref('rooms/' + roomCode).once('value').then((snapshot) => {
+                if (snapshot.exists()) {
+                    currentRoom = roomCode;
+                    currentPlayer = { name: playerName, isHost: false };
+
+                    database.ref('rooms/' + currentRoom + '/players/' + playerName).set({
+                        name: playerName,
+                        isHost: false,
+                        ready: false
+                    }).then(() => {
+                        showRoomScreen();
+                        listenToRoom();
+                    }).catch(error => {
+                        console.error("Error joining room:", error);
+                    });
+                } else {
+                    alert('الغرفة غير موجودة');
+                }
+            }).catch(error => {
+                console.error("Error checking room existence:", error);
+            });
         }
-      });
 
-      // عند الخروج من الصفحة إزالة اللاعب
-      window.addEventListener('beforeunload', ()=>{
-        db.ref('rooms/'+currentRoom+'/players/'+myId).remove();
-      });
-    }
+        function showRoomScreen() {
+            document.getElementById('welcomeScreen').classList.add('hidden');
+            document.getElementById('roomScreen').classList.remove('hidden');
+            
+            document.getElementById('displayRoomCode').textContent = currentRoom;
+            document.getElementById('roomLink').textContent = `https://shakkakk.github.io/mnomjrm/?room=${currentRoom}`;
+            
+            if (currentPlayer.isHost) {
+                document.getElementById('startGameBtn').style.display = 'block';
+            }
+        }
 
-    function renderPlayers(players){
-      redList.innerHTML=''; blueList.innerHTML='';
-      for(const id in players){
-        const p = players[id];
-        const el = document.createElement('div');
-        el.textContent = p.name + (id===myId? ' (أنت)':'');
-        if(p.team==='red') redList.appendChild(el); else blueList.appendChild(el);
-      }
-    }
+        function copyRoomLink() {
+            const link = document.getElementById('roomLink').textContent;
+            // Use execCommand for better cross-browser support in some environments
+            const tempInput = document.createElement('input');
+            tempInput.value = link;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+            alert('تم نسخ الرابط');
+        }
 
-    // ضبط الفريق والدور
-    setRoleBtn.addEventListener('click', ()=>{
-      const team = teamSelect.value; const role = roleSelect.value;
-      if(!currentRoom) return;
-      db.ref('rooms/'+currentRoom+'/players/'+myId).update({team,role});
-    });
+        function listenToRoom() {
+            database.ref('rooms/' + currentRoom).on('value', (snapshot) => {
+                const roomData = snapshot.val();
+                if (!roomData) {
+                    leaveRoom(); // If room is deleted, leave
+                    return;
+                }
 
-    // بدء اللعب — فقط المالك أو أي شخص يمكنه الضغط
-    startGameBtn.addEventListener('click', async ()=>{
-      if(!currentRoom) return;
-      const roomRef = db.ref('rooms/'+currentRoom);
-      // تهيئة اللعبة: تعيين مجرم عشوائي بين 1..10
-      const murdererIndex = Math.floor(Math.random()*10)+1; // 1..10
-      const initCards = {};
-      for(let i=1;i<=10;i++) initCards['c'+i] = {index:i,removed:false,selectedBy:{}};
-      const game = {
-        murderer: murdererIndex,
-        turn: 'red',
-        round: 0,
-        remainingSelect:5,
-        cards:initCards,
-        status:'playing'
-      };
-      await roomRef.update({state:'playing',game});
-    });
+                updatePlayersList(roomData.players);
+                
+                if (roomData.gameState) {
+                    gameState = roomData.gameState;
+                    updateGameDisplay();
+                }
+            });
+        }
 
-    // تصيير واجهة اللعبة بناء على بيانات اللعبة
-    function renderGame(game){
-      // تغيير لون الخلفية حسب الدور
-      if(game.turn==='red') document.body.style.background = 'linear-gradient(180deg, rgba(255,104,104,0.06), var(--bg))';
-      else document.body.style.background = 'linear-gradient(180deg, rgba(90,160,255,0.06), var(--bg))';
+        function updatePlayersList(players) {
+            const playersList = document.getElementById('playersList');
+            playersList.innerHTML = '';
+            
+            Object.values(players).forEach(player => {
+                const playerDiv = document.createElement('div');
+                playerDiv.className = 'player-item';
+                playerDiv.textContent = player.name + (player.isHost ? ' (المضيف)' : '');
+                playersList.appendChild(playerDiv);
+            });
+        }
 
-      turnText.textContent = (game.turn==='red'?'الفريق الأحمر':'الفريق الأزرق');
-      remainingSelect.textContent = game.remainingSelect;
+        function startGame() {
+            if (!currentPlayer.isHost) return;
 
-      // عرض البطاقات
-      cardsWrap.innerHTML='';
-      for(let i=1;i<=10;i++){
-        const key = 'c'+i; const c = game.cards[key];
-        if(!c) continue;
-        if(c.removed) continue; // اذا تم استبعادها
-        const div = document.createElement('div'); div.className='card-item';
-        div.id = 'card_'+i;
-        const img = document.createElement('img');
-        img.src = 'creminal'+i+'.jpg';
-        const name = document.createElement('div'); name.textContent = 'مشتبه '+i;
-        const footer = document.createElement('div'); footer.className='card-footer';
-        const icon = document.createElement('button'); icon.className='icon-btn'; icon.innerHTML='✋';
-        // عند الضغط على الايقونة — التحديد النهائي للبطاقة من قبل اللاعب
-        icon.addEventListener('click',()=>{
-          attemptSelectCard(i);
+            // Get the latest game state from the database
+            database.ref('rooms/' + currentRoom + '/gameState').once('value').then(gameStateSnapshot => {
+                const currentGameState = gameStateSnapshot.val() || {};
+                
+                database.ref('rooms/' + currentRoom + '/players').once('value').then((playersSnapshot) => {
+                    const players = playersSnapshot.val();
+                    const playerNames = Object.keys(players);
+                    
+                    const randomIndex = Math.floor(Math.random() * playerNames.length);
+                    
+                    const newGameState = {
+                        ...currentGameState,
+                        criminal: playerNames[randomIndex],
+                        phase: 'teams',
+                        targetCriminal: null,
+                        // Ensure 'teams' is always present with a default value if missing
+                        teams: currentGameState.teams || {
+                            red: { detectives: [], witness: null },
+                            blue: { detectives: [], witness: null }
+                        }
+                    };
+                    
+                    database.ref('rooms/' + currentRoom + '/gameState').set(newGameState).catch(error => {
+                        console.error("Error starting game:", error);
+                    });
+                });
+            });
+        }
+
+        function selectRole(team, role) {
+            if (gameState.phase !== 'teams') return;
+            if (gameState.criminal === currentPlayer.name) {
+                alert('المجرم لا يمكنه الانضمام لأي فريق!');
+                return;
+            }
+
+            // Get the latest teams data from the database
+            database.ref('rooms/' + currentRoom + '/gameState/teams').once('value').then(teamsSnapshot => {
+                const updatedTeams = teamsSnapshot.val() || {
+                    red: { detectives: [], witness: null },
+                    blue: { detectives: [], witness: null }
+                };
+
+                // Remove player from previous team/role
+                Object.keys(updatedTeams).forEach(t => {
+                    updatedTeams[t].detectives = updatedTeams[t].detectives.filter(p => p !== currentPlayer.name);
+                    if (updatedTeams[t].witness === currentPlayer.name) {
+                        updatedTeams[t].witness = null;
+                    }
+                });
+
+                // Add to new team/role
+                if (role === 'detective') {
+                    if (!updatedTeams[team].detectives.includes(currentPlayer.name)) {
+                        updatedTeams[team].detectives.push(currentPlayer.name);
+                    }
+                } else if (role === 'witness') {
+                    updatedTeams[team].witness = currentPlayer.name;
+                }
+                
+                // Update database with the modified teams object only
+                database.ref('rooms/' + currentRoom + '/gameState/teams').set(updatedTeams).catch(error => {
+                    console.error("Error selecting role:", error);
+                });
+            });
+        }
+
+        function playerReady() {
+            database.ref('rooms/' + currentRoom + '/players/' + currentPlayer.name + '/ready').set(true);
+        }
+
+        function startActualGame() {
+            if (!currentPlayer.isHost) return;
+            
+            database.ref('rooms/' + currentRoom + '/gameState').once('value').then(gameStateSnapshot => {
+                const currentGameState = gameStateSnapshot.val() || {};
+                const newGameState = {
+                    ...currentGameState,
+                    phase: 'criminalSelection',
+                    criminalPosition: null,
+                    criminalMoves: 2
+                };
+                
+                database.ref('rooms/' + currentRoom + '/gameState').set(newGameState).catch(error => {
+                    console.error("Error starting actual game:", error);
+                });
+            });
+        }
+
+        function updateGameDisplay() {
+            // Check current player role and phase to decide which screen to show
+            if (gameState.phase === 'teams') {
+                showTeamScreen();
+            } else if (gameState.phase === 'criminalSelection') {
+                showCriminalSelectionScreen();
+            } else if (gameState.phase === 'playing' || gameState.phase === 'witness') {
+                showGameScreen();
+            } else if (gameState.phase === 'victory') {
+                showVictoryScreen();
+            }
+        }
+
+        function showCriminalSelectionScreen() {
+            document.getElementById('teamScreen').classList.add('hidden');
+            document.getElementById('criminalSelectionScreen').classList.remove('hidden');
+            
+            if (gameState.criminal === currentPlayer.name) {
+                createCriminalPositionGrid();
+            } else {
+                document.getElementById('criminalSelectionScreen').innerHTML = `
+                    <div class="game-header">
+                        <div class="turn-indicator">انتظار المجرم لاختيار موقعه</div>
+                        <div class="selection-count">${gameState.criminal} يختار موقعه في البطاقات</div>
+                    </div>
+                    <div style="text-align: center; margin-top: 50px;">
+                        <p>يرجى الانتظار بينما يقوم المجرم باختيار موقعه السري.</p>
+                    </div>
+                `;
+            }
+        }
+
+        function createCriminalPositionGrid() {
+            const grid = document.getElementById('criminalPositionGrid');
+            grid.innerHTML = '';
+            
+            criminals.forEach((name, index) => {
+                const card = document.createElement('div');
+                card.className = 'criminal-card';
+                card.dataset.index = index;
+                
+                if (gameState.criminalPosition === index) {
+                    card.classList.add('selected');
+                }
+                
+                card.innerHTML = `
+                    <div class="criminal-image">👤</div>
+                    <div class="criminal-name">${name}</div>
+                `;
+                
+                card.addEventListener('click', () => selectCriminalPosition(index));
+                grid.appendChild(card);
+            });
+            
+            document.getElementById('movesLeft').textContent = gameState.criminalMoves;
+            document.getElementById('confirmPositionBtn').style.display = gameState.criminalPosition !== null ? 'block' : 'none';
+        }
+
+        function selectCriminalPosition(index) {
+            if (gameState.criminal !== currentPlayer.name) return;
+            
+            // Clear previous selection
+            document.querySelectorAll('.criminal-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            
+            // Select new position
+            gameState.criminalPosition = index;
+            document.querySelector(`[data-index="${index}"]`).classList.add('selected');
+            document.getElementById('confirmPositionBtn').style.display = 'block';
+        }
+
+        function confirmCriminalPosition() {
+            if (gameState.criminal !== currentPlayer.name || gameState.criminalPosition === null) return;
+            
+            database.ref('rooms/' + currentRoom + '/gameState').once('value').then(gameStateSnapshot => {
+                const currentGameState = gameStateSnapshot.val() || {};
+                const newGameState = {
+                    ...currentGameState,
+                    phase: 'playing',
+                    targetCriminal: currentGameState.criminalPosition,
+                    teams: currentGameState.teams || {
+                        red: { detectives: [], witness: null },
+                        blue: { detectives: [], witness: null }
+                    }
+                };
+                
+                database.ref('rooms/' + currentRoom + '/gameState').set(newGameState).catch(error => {
+                    console.error("Error confirming criminal position:", error);
+                });
+            });
+        }
+
+        function changeCriminalPosition() {
+            if (gameState.criminal !== currentPlayer.name || gameState.criminalMoves <= 0) return;
+            
+            database.ref('rooms/' + currentRoom + '/gameState').once('value').then(gameStateSnapshot => {
+                const currentGameState = gameStateSnapshot.val() || {};
+                const newMoves = currentGameState.criminalMoves - 1;
+
+                const grid = document.getElementById('criminalsGrid');
+                const cards = grid.querySelectorAll('.criminal-card');
+                
+                cards.forEach((card, index) => {
+                    if (index !== currentGameState.criminalPosition) {
+                        card.style.border = '3px dashed #28a745';
+                        card.style.cursor = 'pointer';
+                        card.onclick = () => {
+                            const newGameState = {
+                                ...currentGameState,
+                                criminalPosition: index,
+                                targetCriminal: index,
+                                criminalMoves: newMoves
+                            };
+                            
+                            cards.forEach(c => {
+                                c.style.border = '';
+                                c.style.cursor = '';
+                                c.onclick = null;
+                            });
+                            
+                            database.ref('rooms/' + currentRoom + '/gameState').set(newGameState).catch(error => {
+                                console.error("Error changing criminal position:", error);
+                            });
+                            updateCriminalControls();
+                        };
+                    }
+                });
+            });
+        }
+
+        function updateCriminalControls() {
+            if (gameState.criminal === currentPlayer.name) {
+                document.getElementById('criminalControls').classList.remove('hidden');
+                document.getElementById('currentPosition').textContent = criminals[gameState.criminalPosition];
+                document.getElementById('remainingMoves').textContent = gameState.criminalMoves;
+                
+                const changePosBtn = document.getElementById('changePosBtn');
+                if (gameState.criminalMoves <= 0) {
+                    changePosBtn.disabled = true;
+                    changePosBtn.textContent = 'لا توجد حركات متبقية';
+                    changePosBtn.style.background = '#6c757d';
+                } else {
+                    changePosBtn.disabled = false;
+                    changePosBtn.textContent = 'تغيير الموقع';
+                    changePosBtn.style.background = '#dc3545';
+                }
+            } else {
+                document.getElementById('criminalControls').classList.add('hidden');
+            }
+        }
+
+        function showTeamScreen() {
+            document.getElementById('roomScreen').classList.add('hidden');
+            document.getElementById('teamScreen').classList.remove('hidden');
+            
+            updateTeamDisplay();
+        }
+
+        function updateTeamDisplay() {
+            const redMembers = document.getElementById('redTeamMembers');
+            const blueMembers = document.getElementById('blueTeamMembers');
+            const criminalName = document.getElementById('criminalName');
+
+            // --- إصلاح مشكلة عدم عرض اسم المجرم ---
+            if (gameState.criminal) {
+                criminalName.textContent = `👤 ${gameState.criminal}`;
+                if (gameState.criminal === currentPlayer.name) {
+                    document.getElementById('criminalMessage').textContent = '🔴 أنت المجرم المطلوب! لا يمكنك الانضمام لأي فريق 🔴';
+                    document.getElementById('criminalMessage').style.color = '#ffeb3b';
+                } else {
+                    document.getElementById('criminalMessage').textContent = `${gameState.criminal} هو المجرم المطلوب - لا يمكنه الانضمام لأي فريق`;
+                    document.getElementById('criminalMessage').style.color = 'white';
+                }
+            } else {
+                criminalName.textContent = 'لم يتم اختيار المجرم بعد';
+                document.getElementById('criminalMessage').textContent = 'سيتم اختيار المجرم عشوائياً من اللاعبين';
+            }
+
+            // --- إضافة فحص لضمان وجود كائن الفرق قبل محاولة عرضه ---
+            if (gameState.teams) {
+                // Update red team display
+                let redHTML = '<div style="margin-top: 15px;">';
+                redHTML += '<h4 style="color: #dc3545; margin-bottom: 10px;">المحققون:</h4>';
+                if (gameState.teams.red.detectives.length > 0) {
+                    gameState.teams.red.detectives.forEach(detective => {
+                        redHTML += `<div style="background: #f8f9fa; padding: 8px; margin: 5px 0; border-radius: 5px; border-right: 3px solid #dc3545;">👮 ${detective}</div>`;
+                    });
+                } else {
+                    redHTML += '<div style="color: #666; font-style: italic;">لا يوجد محققون</div>';
+                }
+                
+                redHTML += '<h4 style="color: #dc3545; margin: 15px 0 10px 0;">شاهد العيان:</h4>';
+                if (gameState.teams.red.witness) {
+                    redHTML += `<div style="background: #f8f9fa; padding: 8px; margin: 5px 0; border-radius: 5px; border-right: 3px solid #dc3545;">👁️ ${gameState.teams.red.witness}</div>`;
+                } else {
+                    redHTML += '<div style="color: #666; font-style: italic;">غير محدد</div>';
+                }
+                redHTML += '</div>';
+                redMembers.innerHTML = redHTML;
+
+                // Update blue team display
+                let blueHTML = '<div style="margin-top: 15px;">';
+                blueHTML += '<h4 style="color: #007bff; margin-bottom: 10px;">المحققون:</h4>';
+                if (gameState.teams.blue.detectives.length > 0) {
+                    gameState.teams.blue.detectives.forEach(detective => {
+                        blueHTML += `<div style="background: #f8f9fa; padding: 8px; margin: 5px 0; border-radius: 5px; border-right: 3px solid #007bff;">👮 ${detective}</div>`;
+                    });
+                } else {
+                    blueHTML += '<div style="color: #666; font-style: italic;">لا يوجد محققون</div>';
+                }
+                
+                blueHTML += '<h4 style="color: #007bff; margin: 15px 0 10px 0;">شاهد العيان:</h4>';
+                if (gameState.teams.blue.witness) {
+                    blueHTML += `<div style="background: #f8f9fa; padding: 8px; margin: 5px 0; border-radius: 5px; border-right: 3px solid #007bff;">👁️ ${gameState.teams.blue.witness}</div>`;
+                } else {
+                    blueHTML += '<div style="color: #666; font-style: italic;">غير محدد</div>';
+                }
+                blueHTML += '</div>';
+                blueMembers.innerHTML = blueHTML;
+                
+                // Show start game button for host when all roles are filled
+                if (currentPlayer && currentPlayer.isHost) {
+                    const hasAllRoles = gameState.criminal && 
+                                      gameState.teams.red.witness && 
+                                      gameState.teams.blue.witness &&
+                                      (gameState.teams.red.detectives.length > 0 || gameState.teams.blue.detectives.length > 0);
+                    
+                    document.getElementById('startGameBtn2').style.display = hasAllRoles ? 'block' : 'none';
+                }
+                
+                // Update role button styles based on current player selection
+                document.querySelectorAll('.role-btn').forEach(btn => {
+                    btn.classList.remove('selected');
+                });
+                
+                // Disable buttons for criminal
+                if (gameState.criminal === currentPlayer.name) {
+                    document.querySelectorAll('.role-btn').forEach(btn => {
+                        btn.disabled = true;
+                        btn.style.opacity = '0.5';
+                        btn.style.cursor = 'not-allowed';
+                    });
+                } else {
+                    // Enable buttons for non-criminals and highlight current selection
+                    document.querySelectorAll('.role-btn').forEach(btn => {
+                        btn.disabled = false;
+                        btn.style.opacity = '1';
+                        btn.style.cursor = 'pointer';
+                    });
+                    
+                    // Highlight current player's role
+                    if (gameState.teams.red.detectives.includes(currentPlayer.name)) {
+                        document.querySelector('[onclick="selectRole(\'red\', \'detective\')"]').classList.add('selected');
+                    } else if (gameState.teams.red.witness === currentPlayer.name) {
+                        document.querySelector('[onclick="selectRole(\'red\', \'witness\')"]').classList.add('selected');
+                    } else if (gameState.teams.blue.detectives.includes(currentPlayer.name)) {
+                        document.querySelector('[onclick="selectRole(\'blue\', \'detective\')"]').classList.add('selected');
+                    } else if (gameState.teams.blue.witness === currentPlayer.name) {
+                        document.querySelector('[onclick="selectRole(\'blue\', \'witness\')"]').classList.add('selected');
+                    }
+                }
+            }
+        }
+
+        function showGameScreen() {
+            document.getElementById('teamScreen').classList.add('hidden');
+            document.getElementById('criminalSelectionScreen').classList.add('hidden');
+            document.getElementById('gameScreen').classList.remove('hidden');
+            
+            updateTurnDisplay();
+            createCriminalsGrid();
+            updateTeamsDisplayForGame();
+            updateCriminalControls();
+            
+            if (gameState.currentTeam === 'red') {
+                document.body.classList.add('red-turn');
+                document.body.classList.remove('blue-turn');
+            } else {
+                document.body.classList.add('blue-turn');
+                document.body.classList.remove('red-turn');
+            }
+        }
+
+        function updateTurnDisplay() {
+            const turnIndicator = document.getElementById('turnIndicator');
+            const selectionCount = document.getElementById('selectionCount');
+            
+            turnIndicator.textContent = `دور الفريق ${gameState.currentTeam === 'red' ? 'الأحمر' : 'الأزرق'}`;
+            selectionCount.textContent = `اختر ${gameState.maxSelections} مشتبه بهم`;
+        }
+
+        function createCriminalsGrid() {
+            const grid = document.getElementById('criminalsGrid');
+            grid.innerHTML = '';
+            
+            criminals.forEach((name, index) => {
+                const card = document.createElement('div');
+                card.className = 'criminal-card';
+                card.dataset.index = index;
+                
+                const isWitness = gameState.teams[gameState.currentTeam].witness === currentPlayer.name;
+                if (isWitness && index === gameState.targetCriminal) {
+                    card.classList.add('target');
+                }
+                
+                card.innerHTML = `
+                    <button class="select-btn" onclick="selectCriminal(${index})">👆</button>
+                    <div class="criminal-image">👤</div>
+                    <div class="criminal-name">${name}</div>
+                    <div class="voters-list" id="voters-${index}"></div>
+                `;
+                
+                card.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('select-btn')) return;
+                    selectCriminal(index);
+                });
+                
+                grid.appendChild(card);
+            });
+        }
+        
+        function selectCriminal(index) {
+            if (!gameState.teams[gameState.currentTeam].detectives.includes(currentPlayer.name)) {
+                alert("فقط المحققون يمكنهم الاختيار!");
+                return;
+            }
+
+            database.ref('rooms/' + currentRoom + '/gameState/selectedCriminals').once('value').then(selectedCriminalsSnapshot => {
+                let selectedCriminals = selectedCriminalsSnapshot.val() || [];
+                const card = document.querySelector(`#criminalsGrid [data-index="${index}"]`);
+                const isSelected = selectedCriminals.includes(index);
+
+                if (isSelected) {
+                    selectedCriminals = selectedCriminals.filter(i => i !== index);
+                } else {
+                    if (selectedCriminals.length >= gameState.maxSelections) {
+                        alert(`يمكنك اختيار ${gameState.maxSelections} مشتبه بهم فقط`);
+                        return;
+                    }
+                    selectedCriminals.push(index);
+                }
+
+                database.ref('rooms/' + currentRoom + '/gameState/selectedCriminals').set(selectedCriminals).catch(error => {
+                    console.error("Error selecting criminal:", error);
+                });
+            });
+        }
+        
+        function updateTeamsDisplayForGame() {
+            const redDisplay = document.getElementById('redTeamDisplay');
+            const blueDisplay = document.getElementById('blueTeamDisplay');
+            
+            redDisplay.innerHTML = `
+                <p><strong>المحققون:</strong> ${gameState.teams.red.detectives.join(', ')}</p>
+                <p><strong>شاهد العيان:</strong> ${gameState.teams.red.witness || 'غير محدد'}</p>
+            `;
+            
+            blueDisplay.innerHTML = `
+                <p><strong>المحققون:</strong> ${gameState.teams.blue.detectives.join(', ')}</p>
+                <p><strong>شاهد العيان:</strong> ${gameState.teams.blue.witness || 'غير محدد'}</p>
+            `;
+        }
+
+        function finishTurn() {
+            if (gameState.selectedCriminals.length !== gameState.maxSelections) {
+                alert(`يجب اختيار ${gameState.maxSelections} مشتبه بهم`);
+                return;
+            }
+            
+            database.ref('rooms/' + currentRoom + '/gameState').once('value').then(gameStateSnapshot => {
+                const currentGameState = gameStateSnapshot.val() || {};
+                const newGameState = {
+                    ...currentGameState,
+                    phase: 'witness'
+                };
+                
+                database.ref('rooms/' + currentRoom + '/gameState').set(newGameState).catch(error => {
+                    console.error("Error finishing turn:", error);
+                });
+            });
+        }
+
+        function showWitnessControls() {
+            const witnessControls = document.getElementById('witnessControls');
+            const isCurrentWitness = gameState.teams[gameState.currentTeam].witness === currentPlayer.name;
+            
+            if (isCurrentWitness) {
+                witnessControls.classList.remove('hidden');
+            } else {
+                witnessControls.classList.add('hidden');
+            }
+        }
+
+        function witnessResponse(isIncluded) {
+            if (gameState.teams[gameState.currentTeam].witness !== currentPlayer.name) return;
+            
+            database.ref('rooms/' + currentRoom + '/gameState').once('value').then(gameStateSnapshot => {
+                const newGameState = gameStateSnapshot.val() || {};
+                let winner = null;
+                if (isIncluded) {
+                    newGameState.maxSelections = Math.max(1, newGameState.maxSelections - 1);
+                } else {
+                    // Switch to the other team for the next turn.
+                }
+
+                if (newGameState.maxSelections === 1 && isIncluded) {
+                    if (newGameState.selectedCriminals.includes(newGameState.targetCriminal)) {
+                        winner = newGameState.currentTeam;
+                    } else {
+                        winner = 'criminal';
+                    }
+                } else if (newGameState.maxSelections === 1 && !isIncluded) {
+                    winner = 'criminal';
+                }
+
+                if (winner) {
+                    newGameState.phase = 'victory';
+                    newGameState.winner = winner;
+                } else {
+                    newGameState.currentTeam = newGameState.currentTeam === 'red' ? 'blue' : 'red';
+                    newGameState.phase = 'playing';
+                }
+
+                newGameState.selectedCriminals = [];
+                
+                database.ref('rooms/' + currentRoom + '/gameState').set(newGameState).catch(error => {
+                    console.error("Error with witness response:", error);
+                });
+            });
+        }
+
+        function showVictoryScreen() {
+            document.getElementById('gameScreen').classList.add('hidden');
+            document.getElementById('victoryScreen').classList.remove('hidden');
+            
+            const winningTeamSpan = document.getElementById('winningTeam');
+            const victoryScreenContent = document.querySelector('#victoryScreen .victory-screen');
+            
+            if (gameState.winner === 'criminal') {
+                victoryScreenContent.innerHTML = `
+                    <h2>🔴 فوز المجرم! 🔴</h2>
+                    <div class="certificate" style="background: linear-gradient(45deg, #dc3545, #c82333);">
+                        <h3>المجرم ${gameState.criminal} هرب بنجاح!</h3>
+                        <p>لم تتمكن الفرق من العثور على المجرم المطلوب</p>
+                        <p>المجرم كان مختبئاً في: ${criminals[gameState.targetCriminal]}</p>
+                    </div>
+                    <button class="btn btn-success" onclick="newGame()">لعبة جديدة</button>
+                    <button class="btn btn-danger" onclick="leaveRoom()">مغادرة الغرفة</button>
+                `;
+            } else {
+                winningTeamSpan.textContent = gameState.winner === 'red' ? 'الأحمر' : 'الأزرق';
+                victoryScreenContent.innerHTML = `
+                    <h2>🎉 تهانينا! 🎉</h2>
+                    <div class="certificate">
+                        <h3>شهادة تقدير من المحكمة العليا</h3>
+                        <p>يُشهد بأن فريق <span id="winningTeamText"></span> قد نجح في القبض على المجرم المطلوب</p>
+                        <p>وأظهر مهارات تحقيقية متميزة</p>
+                    </div>
+                    <button class="btn btn-success" onclick="newGame()">لعبة جديدة</button>
+                    <button class="btn btn-danger" onclick="leaveRoom()">مغادرة الغرفة</button>
+                `;
+                document.getElementById('winningTeamText').textContent = gameState.winner === 'red' ? 'الأحمر' : 'الأزرق';
+            }
+            
+            document.body.classList.remove('red-turn', 'blue-turn');
+        }
+
+        function newGame() {
+            if (!currentPlayer.isHost) {
+                alert('فقط المضيف يمكنه بدء لعبة جديدة');
+                return;
+            }
+
+            const initialGameState = {
+                phase: 'teams',
+                currentTeam: 'red',
+                round: 1,
+                maxSelections: 5,
+                selectedCriminals: [],
+                targetCriminal: null,
+                criminal: null,
+                criminalPosition: null,
+                criminalMoves: 2,
+                teams: {
+                    red: { detectives: [], witness: null },
+                    blue: { detectives: [], witness: null }
+                }
+            };
+            
+            database.ref('rooms/' + currentRoom + '/gameState').set(initialGameState).then(() => {
+                 // Reset all players to not ready
+                database.ref('rooms/' + currentRoom + '/players').once('value').then((snapshot) => {
+                    const players = snapshot.val();
+                    if (players) {
+                        Object.keys(players).forEach(playerName => {
+                            database.ref('rooms/' + currentRoom + '/players/' + playerName + '/ready').set(false);
+                        });
+                    }
+                });
+            }).catch(error => {
+                console.error("Error resetting game state:", error);
+            });
+        }
+
+        function leaveRoom() {
+            if (currentRoom && currentPlayer) {
+                database.ref('rooms/' + currentRoom + '/players/' + currentPlayer.name).remove().then(() => {
+                    currentRoom = null;
+                    currentPlayer = null;
+                    document.querySelectorAll('.container > div').forEach(div => div.classList.add('hidden'));
+                    document.getElementById('welcomeScreen').classList.remove('hidden');
+                    document.body.classList.remove('red-turn', 'blue-turn');
+                }).catch(error => {
+                    console.error("Error leaving room:", error);
+                });
+            }
+        }
+        
+        window.addEventListener('load', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const roomCode = urlParams.get('room');
+            if (roomCode) {
+                document.getElementById('roomCode').value = roomCode;
+            }
         });
-        // عند الضغط على البطاقة نفسها — تظهر قائمة من ضغط عليها (المحققون فقط)
-        div.addEventListener('click',()=>{
-          showWhoPressed(i);
-        });
-        const badge = document.createElement('span'); badge.className='selected-badge'; badge.textContent = Object.keys(c.selectedBy||{}).length + ' تم التحضير';
-        footer.appendChild(icon); footer.appendChild(badge);
-        div.appendChild(img); div.appendChild(name); div.appendChild(footer);
-        cardsWrap.appendChild(div);
-      }
-    }
-
-    // محاولة تحديد البطاقة (كالنقر على ايقونة اليد)
-    async function attemptSelectCard(i){
-      if(!currentRoom) return;
-      const pRef = db.ref('rooms/'+currentRoom+'/players/'+myId);
-      const snap = await pRef.once('value');
-      const p = snap.val();
-      if(!p) return;
-      // فقط المحققون في الفريق صاحب الدور يمكنهم الضغط لإضافة أسمائهم (لاحقاً الايقونة تؤكد)
-      const roomGameSnap = await db.ref('rooms/'+currentRoom+'/game').once('value');
-      const game = roomGameSnap.val();
-      if(!game) return;
-      if(p.role !== 'investigator') return showMessage('فقط المحققين يمكنهم التحضير للبطاقات');
-      if(p.team !== game.turn) return showMessage('ليس دور فريقك الآن');
-      // اضف الاسم الى selectedBy
-      const key = 'c'+i;
-      const selRef = db.ref('rooms/'+currentRoom+'/game/cards/'+key+'/selectedBy/'+myId);
-      await selRef.set({name: p.name});
-      // لا نخصم العدد بعد — الخصم يحدث عند الضغط على الايقونة الانتهاء من الفريق
-    }
-
-    // عرض من ضغطوا على بطاقة (المحققون يمكنهم رؤية اسماء من ضغط)
-    async function showWhoPressed(i){
-      const snap = await db.ref('rooms/'+currentRoom+'/game/cards/c'+i+'/selectedBy').once('value');
-      const data = snap.val()||{};
-      const names = Object.values(data).map(x=>x.name);
-      showMessage('ضغط على البطاقة: ' + (names.length? names.join(', '): 'لا أحد حتى الآن'));
-    }
-
-    // نهاية اختيار الفريق — يتم الضغط من قِبل عضو يملك دور شاهد العيان للرد او بالنظام نتنقل الدور
-    endSelectionBtn.addEventListener('click', async ()=>{
-      if(!currentRoom) return;
-      const roomGameRef = db.ref('rooms/'+currentRoom+'/game');
-      const gameSnap = await roomGameRef.once('value');
-      const game = gameSnap.val();
-      if(!game) return;
-      // التبديل إلى دور الآخر بعد إنهاء الاختيارات
-      const nextTurn = (game.turn==='red')? 'blue':'red';
-      // بحسب النظام: rounds وremainingSelect تنقص بعد كل مرحلة محققين
-      const nextRound = (game.round||0) + 1;
-      // تسلسل الاختيارات: 5,4,3,2,1
-      const selectSequence = [5,4,3,2,1];
-      const nextRemaining = selectSequence[Math.min(nextRound, selectSequence.length)-1] || 1;
-      await roomGameRef.update({turn: nextTurn, round: nextRound, remainingSelect: nextRemaining});
-
-      // اذا انتهت كل الدورات او المجرم اصيب — سيتم التحقق لاحقاً عند لوحة الشاهد
-      // اذا كان الشاهد الحالي في الغرفة: نعرض له زرين عن طريق واجهة بسيطة
-      // لتنفيذ قرار الشاهد نستخدم مسارين: شاهد يضغط "المجرم ضمن المحددين" او "ليس ضمن المحددين"
-      // لكن هنا سننتقل للسماع لتصرف الشاهد عبر واجهة مخصصة
-      listenForWitnessActions();
-    });
-
-    // وظيفة استماع بسيطة لافعال الشاهد — تعرض نافذة للمستخدم اذا كان شاهد
-    function listenForWitnessActions(){
-      // اذا كنت شاهد عيان وعليك ان تجيب
-      db.ref('rooms/'+currentRoom+'/players/'+myId).once('value').then(snap=>{
-        const p = snap.val();
-        if(!p) return;
-        if(p.role==='witness'){
-          // عرض نافذة تأكيد صغيرة
-          const yes = confirm('هل المجرم ضمن المحددين الآن؟ اضغط موافق اذا نعم، إلغاء اذا لا');
-          handleWitnessAnswer(yes);
-        }
-      });
-    }
-
-    // معالجة جواب الشاهد
-    async function handleWitnessAnswer(isMurdererWithin){
-      const gameRef = db.ref('rooms/'+currentRoom+'/game');
-      const gameSnap = await gameRef.once('value');
-      const game = gameSnap.val();
-      if(!game) return;
-      if(isMurdererWithin){
-        // نبحث في البطاقات المحددة لنجد المجرم ونحذفه
-        const cards = game.cards||{};
-        for(const k in cards){
-          const c = cards[k];
-          if(c.removed) continue;
-          const sel = c.selectedBy || {};
-          if(Object.keys(sel).length===0) continue;
-          // إذا كانت إحدى هذه البطاقات هي المجرم
-          if(c.index === game.murderer){
-            // شطب البطاقة
-            await gameRef.child('cards/'+k+'/removed').set(true);
-            // تحقق هل بقي بطاقات للمجرم — إذا انتهت نفوز
-            // هنا ببساطة نعلن فوز المحققين
-            await db.ref('rooms/'+currentRoom).update({state:'ended'});
-            await db.ref('rooms/'+currentRoom+'/game/status').set('ended');
-            await db.ref('rooms/'+currentRoom+'/game/winner').set('investigators');
-            showEndScreen('فريق المحققين');
-            return;
-          }
-        }
-        // اذا اجاب شاهد ان المجرم ضمن المحددين لكن لم نعثر عليه — نكمل اللعب
-        showMessage('لم نعثر على المجرم في المحددين، الاستمرار في اللعب');
-      }else{
-        showMessage('الشاهد أكد أن المجرم ليس ضمن المحددين — تستمر اللعبة');
-      }
-    }
-
-    // اظهار شاشة النهاية محلياً
-    function showEndScreen(name){
-      roomSection.style.display='none';
-      endScreen.style.display='block';
-      winnerName.textContent = name;
-    }
-
-    // زر بدء لعبة جديدة — يُرجع المستخدم الى صفحة رمز الغرفة
-    newGameBtn.addEventListener('click', ()=>{
-      endScreen.style.display='none';
-      lobby.style.display='block';
-      roomInfo.style.display='none';
-      roomSection.style.display='none';
-    });
-
-    // مغادرة الغرفة
-    leaveRoomBtn.addEventListener('click', async ()=>{
-      if(!currentRoom) return;
-      await db.ref('rooms/'+currentRoom+'/players/'+myId).remove();
-      currentRoom = null; myId=null; myName='';
-      roomSection.style.display='none'; lobby.style.display='block';
-    });
-
-    // عند فتح الصفحة مع رمز في الهاش
-    window.addEventListener('load', ()=>{
-      const h = location.hash; if(!h) return;
-      const m = h.match(/room=([A-Z0-9]+)/);
-      if(m){ roomCodeInput.value = m[1]; }
-    });
-
-  </script>
-</body>
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96d29ae2e42d353e',t:'MTc1NDg2MTUzNy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
