@@ -596,8 +596,12 @@
         };
 
         // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
-        const database = firebase.database();
+        try {
+            firebase.initializeApp(firebaseConfig);
+            var database = firebase.database();
+        } catch (error) {
+            console.error("خطأ في تهيئة Firebase:", error);
+        }
 
         // Game State
         let currentRoom = null;
@@ -631,7 +635,7 @@
         function createRoom() {
             const playerName = document.getElementById('playerName').value.trim();
             if (!playerName) {
-                alert('يرجى إدخال اسم اللاعب');
+                console.error('يرجى إدخال اسم اللاعب');
                 return;
             }
 
@@ -649,7 +653,7 @@
                 showRoomScreen();
                 listenToRoom();
             }).catch(error => {
-                console.error("Error creating room:", error);
+                console.error("خطأ في إنشاء الغرفة:", error);
             });
         }
 
@@ -658,7 +662,7 @@
             const roomCode = document.getElementById('roomCode').value.trim().toUpperCase();
 
             if (!playerName || !roomCode) {
-                alert('يرجى إدخال اسم اللاعب ورمز الغرفة');
+                console.error('يرجى إدخال اسم اللاعب ورمز الغرفة');
                 return;
             }
 
@@ -675,13 +679,13 @@
                         showRoomScreen();
                         listenToRoom();
                     }).catch(error => {
-                        console.error("Error joining room:", error);
+                        console.error("خطأ في الانضمام للغرفة:", error);
                     });
                 } else {
-                    alert('الغرفة غير موجودة');
+                    console.error('الغرفة غير موجودة');
                 }
             }).catch(error => {
-                console.error("Error checking room existence:", error);
+                console.error("خطأ في التحقق من وجود الغرفة:", error);
             });
         }
 
@@ -699,14 +703,13 @@
 
         function copyRoomLink() {
             const link = document.getElementById('roomLink').textContent;
-            // Use execCommand for better cross-browser support in some environments
             const tempInput = document.createElement('input');
             tempInput.value = link;
             document.body.appendChild(tempInput);
             tempInput.select();
             document.execCommand('copy');
             document.body.removeChild(tempInput);
-            alert('تم نسخ الرابط');
+            console.log('تم نسخ الرابط');
         }
 
         function listenToRoom() {
@@ -730,12 +733,14 @@
             const playersList = document.getElementById('playersList');
             playersList.innerHTML = '';
             
-            Object.values(players).forEach(player => {
-                const playerDiv = document.createElement('div');
-                playerDiv.className = 'player-item';
-                playerDiv.textContent = player.name + (player.isHost ? ' (المضيف)' : '');
-                playersList.appendChild(playerDiv);
-            });
+            if (players) {
+                Object.values(players).forEach(player => {
+                    const playerDiv = document.createElement('div');
+                    playerDiv.className = 'player-item';
+                    playerDiv.textContent = player.name + (player.isHost ? ' (المضيف)' : '');
+                    playersList.appendChild(playerDiv);
+                });
+            }
         }
 
         function startGame() {
@@ -747,8 +752,13 @@
                 
                 database.ref('rooms/' + currentRoom + '/players').once('value').then((playersSnapshot) => {
                     const players = playersSnapshot.val();
-                    const playerNames = Object.keys(players);
+                    const playerNames = players ? Object.keys(players) : [];
                     
+                    if (playerNames.length === 0) {
+                        console.error('لا يوجد لاعبون في الغرفة!');
+                        return;
+                    }
+
                     const randomIndex = Math.floor(Math.random() * playerNames.length);
                     
                     const newGameState = {
@@ -756,7 +766,6 @@
                         criminal: playerNames[randomIndex],
                         phase: 'teams',
                         targetCriminal: null,
-                        // Ensure 'teams' is always present with a default value if missing
                         teams: currentGameState.teams || {
                             red: { detectives: [], witness: null },
                             blue: { detectives: [], witness: null }
@@ -764,7 +773,7 @@
                     };
                     
                     database.ref('rooms/' + currentRoom + '/gameState').set(newGameState).catch(error => {
-                        console.error("Error starting game:", error);
+                        console.error("خطأ في بدء اللعبة:", error);
                     });
                 });
             });
@@ -773,7 +782,7 @@
         function selectRole(team, role) {
             if (gameState.phase !== 'teams') return;
             if (gameState.criminal === currentPlayer.name) {
-                alert('المجرم لا يمكنه الانضمام لأي فريق!');
+                console.error('المجرم لا يمكنه الانضمام لأي فريق!');
                 return;
             }
 
@@ -783,27 +792,24 @@
                     red: { detectives: [], witness: null },
                     blue: { detectives: [], witness: null }
                 };
+                
+                // Clear the player from all teams before re-assigning
+                updatedTeams.red.detectives = updatedTeams.red.detectives.filter(p => p !== currentPlayer.name);
+                if (updatedTeams.red.witness === currentPlayer.name) updatedTeams.red.witness = null;
+                
+                updatedTeams.blue.detectives = updatedTeams.blue.detectives.filter(p => p !== currentPlayer.name);
+                if (updatedTeams.blue.witness === currentPlayer.name) updatedTeams.blue.witness = null;
 
-                // Remove player from previous team/role
-                Object.keys(updatedTeams).forEach(t => {
-                    updatedTeams[t].detectives = updatedTeams[t].detectives.filter(p => p !== currentPlayer.name);
-                    if (updatedTeams[t].witness === currentPlayer.name) {
-                        updatedTeams[t].witness = null;
-                    }
-                });
-
-                // Add to new team/role
+                // Add player to the new team/role
                 if (role === 'detective') {
-                    if (!updatedTeams[team].detectives.includes(currentPlayer.name)) {
-                        updatedTeams[team].detectives.push(currentPlayer.name);
-                    }
+                    updatedTeams[team].detectives.push(currentPlayer.name);
                 } else if (role === 'witness') {
                     updatedTeams[team].witness = currentPlayer.name;
                 }
                 
-                // Update database with the modified teams object only
+                // Update database with the modified teams object
                 database.ref('rooms/' + currentRoom + '/gameState/teams').set(updatedTeams).catch(error => {
-                    console.error("Error selecting role:", error);
+                    console.error("خطأ في اختيار الدور:", error);
                 });
             });
         }
@@ -825,14 +831,17 @@
                 };
                 
                 database.ref('rooms/' + currentRoom + '/gameState').set(newGameState).catch(error => {
-                    console.error("Error starting actual game:", error);
+                    console.error("خطأ في بدء اللعبة الفعلية:", error);
                 });
             });
         }
 
         function updateGameDisplay() {
             // Check current player role and phase to decide which screen to show
-            if (gameState.phase === 'teams') {
+            if (gameState.phase === 'waiting') {
+                document.getElementById('welcomeScreen').classList.add('hidden');
+                document.getElementById('roomScreen').classList.remove('hidden');
+            } else if (gameState.phase === 'teams') {
                 showTeamScreen();
             } else if (gameState.phase === 'criminalSelection') {
                 showCriminalSelectionScreen();
@@ -898,7 +907,7 @@
             
             // Select new position
             gameState.criminalPosition = index;
-            document.querySelector(`[data-index="${index}"]`).classList.add('selected');
+            document.querySelector(`#criminalPositionGrid [data-index="${index}"]`).classList.add('selected');
             document.getElementById('confirmPositionBtn').style.display = 'block';
         }
 
@@ -918,7 +927,7 @@
                 };
                 
                 database.ref('rooms/' + currentRoom + '/gameState').set(newGameState).catch(error => {
-                    console.error("Error confirming criminal position:", error);
+                    console.error("خطأ في تأكيد موقع المجرم:", error);
                 });
             });
         }
@@ -952,7 +961,7 @@
                             });
                             
                             database.ref('rooms/' + currentRoom + '/gameState').set(newGameState).catch(error => {
-                                console.error("Error changing criminal position:", error);
+                                console.error("خطأ في تغيير موقع المجرم:", error);
                             });
                             updateCriminalControls();
                         };
@@ -1131,7 +1140,7 @@
                 card.className = 'criminal-card';
                 card.dataset.index = index;
                 
-                const isWitness = gameState.teams[gameState.currentTeam].witness === currentPlayer.name;
+                const isWitness = gameState.teams[gameState.currentTeam] && gameState.teams[gameState.currentTeam].witness === currentPlayer.name;
                 if (isWitness && index === gameState.targetCriminal) {
                     card.classList.add('target');
                 }
@@ -1153,8 +1162,9 @@
         }
         
         function selectCriminal(index) {
-            if (!gameState.teams[gameState.currentTeam].detectives.includes(currentPlayer.name)) {
-                alert("فقط المحققون يمكنهم الاختيار!");
+            // Check if the player is a detective in the current team
+            if (!gameState.teams[gameState.currentTeam] || !gameState.teams[gameState.currentTeam].detectives.includes(currentPlayer.name)) {
+                console.error("فقط المحققون يمكنهم الاختيار!");
                 return;
             }
 
@@ -1167,14 +1177,14 @@
                     selectedCriminals = selectedCriminals.filter(i => i !== index);
                 } else {
                     if (selectedCriminals.length >= gameState.maxSelections) {
-                        alert(`يمكنك اختيار ${gameState.maxSelections} مشتبه بهم فقط`);
+                        console.error(`يمكنك اختيار ${gameState.maxSelections} مشتبه بهم فقط`);
                         return;
                     }
                     selectedCriminals.push(index);
                 }
 
                 database.ref('rooms/' + currentRoom + '/gameState/selectedCriminals').set(selectedCriminals).catch(error => {
-                    console.error("Error selecting criminal:", error);
+                    console.error("خطأ في اختيار المجرم:", error);
                 });
             });
         }
@@ -1183,20 +1193,25 @@
             const redDisplay = document.getElementById('redTeamDisplay');
             const blueDisplay = document.getElementById('blueTeamDisplay');
             
-            redDisplay.innerHTML = `
-                <p><strong>المحققون:</strong> ${gameState.teams.red.detectives.join(', ')}</p>
-                <p><strong>شاهد العيان:</strong> ${gameState.teams.red.witness || 'غير محدد'}</p>
-            `;
-            
-            blueDisplay.innerHTML = `
-                <p><strong>المحققون:</strong> ${gameState.teams.blue.detectives.join(', ')}</p>
-                <p><strong>شاهد العيان:</strong> ${gameState.teams.blue.witness || 'غير محدد'}</p>
-            `;
+            // Check for team existence before updating
+            if (gameState.teams.red) {
+                redDisplay.innerHTML = `
+                    <p><strong>المحققون:</strong> ${gameState.teams.red.detectives.join(', ')}</p>
+                    <p><strong>شاهد العيان:</strong> ${gameState.teams.red.witness || 'غير محدد'}</p>
+                `;
+            }
+
+            if (gameState.teams.blue) {
+                blueDisplay.innerHTML = `
+                    <p><strong>المحققون:</strong> ${gameState.teams.blue.detectives.join(', ')}</p>
+                    <p><strong>شاهد العيان:</strong> ${gameState.teams.blue.witness || 'غير محدد'}</p>
+                `;
+            }
         }
 
         function finishTurn() {
             if (gameState.selectedCriminals.length !== gameState.maxSelections) {
-                alert(`يجب اختيار ${gameState.maxSelections} مشتبه بهم`);
+                console.error(`يجب اختيار ${gameState.maxSelections} مشتبه بهم`);
                 return;
             }
             
@@ -1204,18 +1219,19 @@
                 const currentGameState = gameStateSnapshot.val() || {};
                 const newGameState = {
                     ...currentGameState,
-                    phase: 'witness'
+                    phase: 'witness',
+                    selectedCriminals: currentGameState.selectedCriminals
                 };
                 
                 database.ref('rooms/' + currentRoom + '/gameState').set(newGameState).catch(error => {
-                    console.error("Error finishing turn:", error);
+                    console.error("خطأ في إنهاء الدور:", error);
                 });
             });
         }
 
         function showWitnessControls() {
             const witnessControls = document.getElementById('witnessControls');
-            const isCurrentWitness = gameState.teams[gameState.currentTeam].witness === currentPlayer.name;
+            const isCurrentWitness = gameState.teams[gameState.currentTeam] && gameState.teams[gameState.currentTeam].witness === currentPlayer.name;
             
             if (isCurrentWitness) {
                 witnessControls.classList.remove('hidden');
@@ -1225,15 +1241,18 @@
         }
 
         function witnessResponse(isIncluded) {
-            if (gameState.teams[gameState.currentTeam].witness !== currentPlayer.name) return;
+            if (!gameState.teams[gameState.currentTeam] || gameState.teams[gameState.currentTeam].witness !== currentPlayer.name) return;
             
             database.ref('rooms/' + currentRoom + '/gameState').once('value').then(gameStateSnapshot => {
-                const newGameState = gameStateSnapshot.val() || {};
+                const currentGameState = gameStateSnapshot.val() || {};
+                const newGameState = { ...currentGameState };
                 let winner = null;
+                
                 if (isIncluded) {
                     newGameState.maxSelections = Math.max(1, newGameState.maxSelections - 1);
                 } else {
                     // Switch to the other team for the next turn.
+                    newGameState.currentTeam = newGameState.currentTeam === 'red' ? 'blue' : 'red';
                 }
 
                 if (newGameState.maxSelections === 1 && isIncluded) {
@@ -1250,14 +1269,13 @@
                     newGameState.phase = 'victory';
                     newGameState.winner = winner;
                 } else {
-                    newGameState.currentTeam = newGameState.currentTeam === 'red' ? 'blue' : 'red';
                     newGameState.phase = 'playing';
                 }
 
                 newGameState.selectedCriminals = [];
                 
                 database.ref('rooms/' + currentRoom + '/gameState').set(newGameState).catch(error => {
-                    console.error("Error with witness response:", error);
+                    console.error("خطأ في استجابة الشاهد:", error);
                 });
             });
         }
@@ -1300,7 +1318,7 @@
 
         function newGame() {
             if (!currentPlayer.isHost) {
-                alert('فقط المضيف يمكنه بدء لعبة جديدة');
+                console.error('فقط المضيف يمكنه بدء لعبة جديدة');
                 return;
             }
 
@@ -1331,7 +1349,7 @@
                     }
                 });
             }).catch(error => {
-                console.error("Error resetting game state:", error);
+                console.error("خطأ في إعادة تعيين حالة اللعبة:", error);
             });
         }
 
@@ -1344,7 +1362,7 @@
                     document.getElementById('welcomeScreen').classList.remove('hidden');
                     document.body.classList.remove('red-turn', 'blue-turn');
                 }).catch(error => {
-                    console.error("Error leaving room:", error);
+                    console.error("خطأ في مغادرة الغرفة:", error);
                 });
             }
         }
@@ -1357,5 +1375,5 @@
             }
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96d29ae2e42d353e',t:'MTc1NDg2MTUzNy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</body>
 </html>
