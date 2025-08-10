@@ -489,8 +489,8 @@
                 <div class="team-box team-red">
                     <div class="team-title red-team">الفريق الأحمر</div>
                     <div class="role-buttons">
-                        <button class="role-btn" onclick="selectRole('red', 'detective')">محقق</button>
-                        <button class="role-btn" onclick="selectRole('red', 'witness')">شاهد عيان</button>
+                        <button class="role-btn" data-team="red" data-role="detective" onclick="selectRole('red', 'detective')">محقق</button>
+                        <button class="role-btn" data-team="red" data-role="witness" onclick="selectRole('red', 'witness')">شاهد عيان</button>
                     </div>
                     <div id="redTeamMembers"></div>
                 </div>
@@ -498,8 +498,8 @@
                 <div class="team-box team-blue">
                     <div class="team-title blue-team">الفريق الأزرق</div>
                     <div class="role-buttons">
-                        <button class="role-btn" onclick="selectRole('blue', 'detective')">محقق</button>
-                        <button class="role-btn" onclick="selectRole('blue', 'witness')">شاهد عيان</button>
+                        <button class="role-btn" data-team="blue" data-role="detective" onclick="selectRole('blue', 'detective')">محقق</button>
+                        <button class="role-btn" data-team="blue" data-role="witness" onclick="selectRole('blue', 'witness')">شاهد عيان</button>
                     </div>
                     <div id="blueTeamMembers"></div>
                 </div>
@@ -766,6 +766,7 @@
                         criminal: playerNames[randomIndex],
                         phase: 'teams',
                         targetCriminal: null,
+                        // --- FIX: Ensure teams object is always present ---
                         teams: currentGameState.teams || {
                             red: { detectives: [], witness: null },
                             blue: { detectives: [], witness: null }
@@ -788,23 +789,31 @@
 
             // Get the latest teams data from the database
             database.ref('rooms/' + currentRoom + '/gameState/teams').once('value').then(teamsSnapshot => {
+                // --- FIX: Use a robust default if teams is undefined ---
                 const updatedTeams = teamsSnapshot.val() || {
                     red: { detectives: [], witness: null },
                     blue: { detectives: [], witness: null }
                 };
                 
-                // Clear the player from all teams before re-assigning
-                updatedTeams.red.detectives = updatedTeams.red.detectives.filter(p => p !== currentPlayer.name);
-                if (updatedTeams.red.witness === currentPlayer.name) updatedTeams.red.witness = null;
+                // --- FIX: Correctly clear the player from all roles before assigning a new one ---
+                const playerName = currentPlayer.name;
+
+                // Remove player from any other team/role
+                updatedTeams.red.detectives = updatedTeams.red.detectives.filter(p => p !== playerName);
+                if (updatedTeams.red.witness === playerName) {
+                    updatedTeams.red.witness = null;
+                }
                 
-                updatedTeams.blue.detectives = updatedTeams.blue.detectives.filter(p => p !== currentPlayer.name);
-                if (updatedTeams.blue.witness === currentPlayer.name) updatedTeams.blue.witness = null;
+                updatedTeams.blue.detectives = updatedTeams.blue.detectives.filter(p => p !== playerName);
+                if (updatedTeams.blue.witness === playerName) {
+                    updatedTeams.blue.witness = null;
+                }
 
                 // Add player to the new team/role
                 if (role === 'detective') {
-                    updatedTeams[team].detectives.push(currentPlayer.name);
+                    updatedTeams[team].detectives.push(playerName);
                 } else if (role === 'witness') {
-                    updatedTeams[team].witness = currentPlayer.name;
+                    updatedTeams[team].witness = playerName;
                 }
                 
                 // Update database with the modified teams object
@@ -1006,7 +1015,7 @@
             // --- إصلاح مشكلة عدم عرض اسم المجرم ---
             if (gameState.criminal) {
                 criminalName.textContent = `👤 ${gameState.criminal}`;
-                if (gameState.criminal === currentPlayer.name) {
+                if (currentPlayer && gameState.criminal === currentPlayer.name) {
                     document.getElementById('criminalMessage').textContent = '🔴 أنت المجرم المطلوب! لا يمكنك الانضمام لأي فريق 🔴';
                     document.getElementById('criminalMessage').style.color = '#ffeb3b';
                 } else {
@@ -1076,7 +1085,7 @@
                 });
                 
                 // Disable buttons for criminal
-                if (gameState.criminal === currentPlayer.name) {
+                if (currentPlayer && gameState.criminal === currentPlayer.name) {
                     document.querySelectorAll('.role-btn').forEach(btn => {
                         btn.disabled = true;
                         btn.style.opacity = '0.5';
@@ -1092,13 +1101,13 @@
                     
                     // Highlight current player's role
                     if (gameState.teams.red.detectives.includes(currentPlayer.name)) {
-                        document.querySelector('[onclick="selectRole(\'red\', \'detective\')"]').classList.add('selected');
+                        document.querySelector('[data-team="red"][data-role="detective"]').classList.add('selected');
                     } else if (gameState.teams.red.witness === currentPlayer.name) {
-                        document.querySelector('[onclick="selectRole(\'red\', \'witness\')"]').classList.add('selected');
+                        document.querySelector('[data-team="red"][data-role="witness"]').classList.add('selected');
                     } else if (gameState.teams.blue.detectives.includes(currentPlayer.name)) {
-                        document.querySelector('[onclick="selectRole(\'blue\', \'detective\')"]').classList.add('selected');
+                        document.querySelector('[data-team="blue"][data-role="detective"]').classList.add('selected');
                     } else if (gameState.teams.blue.witness === currentPlayer.name) {
-                        document.querySelector('[onclick="selectRole(\'blue\', \'witness\')"]').classList.add('selected');
+                        document.querySelector('[data-team="blue"][data-role="witness"]').classList.add('selected');
                     }
                 }
             }
@@ -1289,7 +1298,7 @@
             
             if (gameState.winner === 'criminal') {
                 victoryScreenContent.innerHTML = `
-                    <h2>🔴 فوز المجرم! 🔴</h2>
+                    <h2>� فوز المجرم! 🔴</h2>
                     <div class="certificate" style="background: linear-gradient(45deg, #dc3545, #c82333);">
                         <h3>المجرم ${gameState.criminal} هرب بنجاح!</h3>
                         <p>لم تتمكن الفرق من العثور على المجرم المطلوب</p>
@@ -1377,3 +1386,4 @@
     </script>
 </body>
 </html>
+�
