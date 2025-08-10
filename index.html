@@ -789,7 +789,7 @@
 
             // Get the latest teams data from the database
             database.ref('rooms/' + currentRoom + '/gameState/teams').once('value').then(teamsSnapshot => {
-                // --- FIX: Use a robust default if teams is undefined ---
+                // --- FIX: Use a robust default if teams is undefined, which causes the error ---
                 const updatedTeams = teamsSnapshot.val() || {
                     red: { detectives: [], witness: null },
                     blue: { detectives: [], witness: null }
@@ -799,18 +799,26 @@
                 const playerName = currentPlayer.name;
 
                 // Remove player from any other team/role
-                updatedTeams.red.detectives = updatedTeams.red.detectives.filter(p => p !== playerName);
-                if (updatedTeams.red.witness === playerName) {
-                    updatedTeams.red.witness = null;
+                if (updatedTeams.red) {
+                    updatedTeams.red.detectives = updatedTeams.red.detectives.filter(p => p !== playerName);
+                    if (updatedTeams.red.witness === playerName) {
+                        updatedTeams.red.witness = null;
+                    }
                 }
                 
-                updatedTeams.blue.detectives = updatedTeams.blue.detectives.filter(p => p !== playerName);
-                if (updatedTeams.blue.witness === playerName) {
-                    updatedTeams.blue.witness = null;
+                if (updatedTeams.blue) {
+                    updatedTeams.blue.detectives = updatedTeams.blue.detectives.filter(p => p !== playerName);
+                    if (updatedTeams.blue.witness === playerName) {
+                        updatedTeams.blue.witness = null;
+                    }
                 }
 
                 // Add player to the new team/role
                 if (role === 'detective') {
+                    // --- FIX: Ensure the detectives array exists ---
+                    if (!updatedTeams[team].detectives) {
+                        updatedTeams[team].detectives = [];
+                    }
                     updatedTeams[team].detectives.push(playerName);
                 } else if (role === 'witness') {
                     updatedTeams[team].witness = playerName;
@@ -1032,7 +1040,8 @@
                 // Update red team display
                 let redHTML = '<div style="margin-top: 15px;">';
                 redHTML += '<h4 style="color: #dc3545; margin-bottom: 10px;">المحققون:</h4>';
-                if (gameState.teams.red.detectives.length > 0) {
+                // --- FIX: Ensure detectives array exists before iterating ---
+                if (gameState.teams.red.detectives && gameState.teams.red.detectives.length > 0) {
                     gameState.teams.red.detectives.forEach(detective => {
                         redHTML += `<div style="background: #f8f9fa; padding: 8px; margin: 5px 0; border-radius: 5px; border-right: 3px solid #dc3545;">👮 ${detective}</div>`;
                     });
@@ -1052,7 +1061,8 @@
                 // Update blue team display
                 let blueHTML = '<div style="margin-top: 15px;">';
                 blueHTML += '<h4 style="color: #007bff; margin-bottom: 10px;">المحققون:</h4>';
-                if (gameState.teams.blue.detectives.length > 0) {
+                // --- FIX: Ensure detectives array exists before iterating ---
+                if (gameState.teams.blue.detectives && gameState.teams.blue.detectives.length > 0) {
                     gameState.teams.blue.detectives.forEach(detective => {
                         blueHTML += `<div style="background: #f8f9fa; padding: 8px; margin: 5px 0; border-radius: 5px; border-right: 3px solid #007bff;">👮 ${detective}</div>`;
                     });
@@ -1100,13 +1110,13 @@
                     });
                     
                     // Highlight current player's role
-                    if (gameState.teams.red.detectives.includes(currentPlayer.name)) {
+                    if (gameState.teams.red && gameState.teams.red.detectives.includes(currentPlayer.name)) {
                         document.querySelector('[data-team="red"][data-role="detective"]').classList.add('selected');
-                    } else if (gameState.teams.red.witness === currentPlayer.name) {
+                    } else if (gameState.teams.red && gameState.teams.red.witness === currentPlayer.name) {
                         document.querySelector('[data-team="red"][data-role="witness"]').classList.add('selected');
-                    } else if (gameState.teams.blue.detectives.includes(currentPlayer.name)) {
+                    } else if (gameState.teams.blue && gameState.teams.blue.detectives.includes(currentPlayer.name)) {
                         document.querySelector('[data-team="blue"][data-role="detective"]').classList.add('selected');
-                    } else if (gameState.teams.blue.witness === currentPlayer.name) {
+                    } else if (gameState.teams.blue && gameState.teams.blue.witness === currentPlayer.name) {
                         document.querySelector('[data-team="blue"][data-role="witness"]').classList.add('selected');
                     }
                 }
@@ -1203,14 +1213,14 @@
             const blueDisplay = document.getElementById('blueTeamDisplay');
             
             // Check for team existence before updating
-            if (gameState.teams.red) {
+            if (gameState.teams && gameState.teams.red) {
                 redDisplay.innerHTML = `
                     <p><strong>المحققون:</strong> ${gameState.teams.red.detectives.join(', ')}</p>
                     <p><strong>شاهد العيان:</strong> ${gameState.teams.red.witness || 'غير محدد'}</p>
                 `;
             }
 
-            if (gameState.teams.blue) {
+            if (gameState.teams && gameState.teams.blue) {
                 blueDisplay.innerHTML = `
                     <p><strong>المحققون:</strong> ${gameState.teams.blue.detectives.join(', ')}</p>
                     <p><strong>شاهد العيان:</strong> ${gameState.teams.blue.witness || 'غير محدد'}</p>
@@ -1298,7 +1308,7 @@
             
             if (gameState.winner === 'criminal') {
                 victoryScreenContent.innerHTML = `
-                    <h2>� فوز المجرم! 🔴</h2>
+                    <h2>🔴 فوز المجرم! 🔴</h2>
                     <div class="certificate" style="background: linear-gradient(45deg, #dc3545, #c82333);">
                         <h3>المجرم ${gameState.criminal} هرب بنجاح!</h3>
                         <p>لم تتمكن الفرق من العثور على المجرم المطلوب</p>
@@ -1386,4 +1396,3 @@
     </script>
 </body>
 </html>
-�
