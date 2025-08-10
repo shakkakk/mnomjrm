@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="ar">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>من المجرم المطلوب — لعبة</title>
+  <style>
+    :root{--bg:#f7f7f9;--card:#fff;--accent:#0b5;--red:#ff6868;--blue:#5aa0ff}
+    html,body{height:100%;margin:0;font-family:Segoe UI, Tahoma, Arial;direction:rtl}
+    .app{min-height:100%;display:flex;flex-direction:column;background:var(--bg);padding:12px}
+    header{display:flex;align-items:center;justify-content:space-between;padding:12px 8px}
+    header h1{margin:0;font-size:1.3rem}
+    .container{max-width:1100px;margin:8px auto;background:transparent}
+    .card{background:var(--card);border-radius:12px;padding:14px;box-shadow:0 6px 18px rgba(0,0,0,.06)}
+    .row{display:flex;gap:12px;align-items:center}
+    .col{flex:1}
+    input[type=text]{width:100%;padding:10px;border-radius:8px;border:1px solid #ddd;font-size:0.95rem}
+    button{padding:10px 14px;border-radius:8px;border:0;background:#222;color:#fff;cursor:pointer}
+    .small{font-size:0.85rem}
+    .room-code{font-size:2.4rem;font-weight:700;letter-spacing:6px;text-align:center}
+    .players-area{display:flex;gap:12px;margin-top:12px}
+    .team{flex:1;padding:10px;border-radius:10px}
+    .team.red{background:rgba(255,104,104,0.09);border:1px solid rgba(255,104,104,0.12)}
+    .team.blue{background:rgba(90,160,255,0.07);border:1px solid rgba(90,160,255,0.12)}
+    .players-list{min-height:60px}
+    .cards-wrap{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+    .card-item{width:calc(20% - 10px);min-width:120px;background:#fff;border-radius:10px;padding:8px;text-align:center;box-shadow:0 4px 10px rgba(0,0,0,.06)}
+    .card-item img{width:100%;height:100px;object-fit:cover;border-radius:6px}
+    .card-footer{display:flex;justify-content:space-between;align-items:center;margin-top:6px}
+    .icon-btn{background:transparent;border:0;cursor:pointer;font-size:1.1rem}
+    .selected-badge{display:inline-block;padding:6px;border-radius:8px;background:#222;color:#fff;font-size:0.8rem}
+    .status{margin-top:8px}
+    .controls{display:flex;gap:8px;justify-content:center;margin-top:12px}
+    @media (max-width:900px){.card-item{width:calc(33% - 10px)}header h1{font-size:1.1rem}.room-code{font-size:1.6rem}}
+    @media (max-width:560px){.card-item{width:calc(50% - 10px)}.players-area{flex-direction:column}}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="card">
+      <h1>من "المجرم" المطلوب</h1>
+      <div class="small">لعبة بسيطة، جميلة وسهلة الاستخدام — للجوال والكمبيوتر</div>
+    </header>
+
+    <main class="container">
+      <!-- شاشة الانشاء والدخول -->
+      <section id="lobby" class="card">
+        <div class="row">
+          <div class="col">
+            <label>اسم اللاعب</label>
+            <input id="playerName" type="text" placeholder="اكتب اسمك هنا" />
+          </div>
+          <div style="width:16px"></div>
+          <div style="width:200px">
+            <label>رمز الغرفة</label>
+            <input id="roomCodeInput" type="text" placeholder="رمز الغرفة" />
+          </div>
+          <div style="width:12px"></div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <button id="createRoomBtn">إنشاء غرفة جديدة</button>
+            <button id="joinRoomBtn">دخول الغرفة</button>
+          </div>
+        </div>
+        <div id="roomInfo" style="margin-top:12px;display:none">
+          <div class="room-code" id="roomCodeDisplay"></div>
+          <div class="small">رابط الغرفة: <a id="roomLink" href="#"></a></div>
+        </div>
+      </section>
+
+      <!-- شاشة الغرفة -->
+      <section id="room" class="card" style="margin-top:12px;display:none">
+        <div class="row">
+          <div class="col">
+            <div class="players-area">
+              <div class="team red">
+                <div style="font-weight:700">الفريق الأحمر</div>
+                <div class="players-list" id="redList"></div>
+              </div>
+              <div class="team blue">
+                <div style="font-weight:700">الفريق الأزرق</div>
+                <div class="players-list" id="blueList"></div>
+              </div>
+            </div>
+          </div>
+          <div style="width:220px">
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <div class="small">أنت: <span id="meName"></span></div>
+              <label>اختر فريقك</label>
+              <select id="teamSelect">
+                <option value="red">أحمر</option>
+                <option value="blue">أزرق</option>
+              </select>
+              <label>دورك</label>
+              <select id="roleSelect">
+                <option value="investigator">محقق</option>
+                <option value="witness">شاهد عيان</option>
+              </select>
+              <button id="setRoleBtn">تثبيت الفريق والدور</button>
+              <div style="height:8px"></div>
+              <button id="startGameBtn">بدء اللعب</button>
+              <button id="leaveRoomBtn" style="background:#c33">مغادرة الغرفة</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="gameArea" style="margin-top:12px;display:none" class="card">
+          <div id="turnBanner" style="padding:10px;border-radius:8px;text-align:center;font-weight:700">الدور: <span id="turnText">--</span></div>
+          <div class="status small">عدد الاختيارات المتبقية لهذا الدور: <span id="remainingSelect">-</span></div>
+
+          <div class="cards-wrap" id="cardsWrap"></div>
+
+          <div class="controls">
+            <button id="endSelectionBtn">إنهاء الاختيار</button>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- شاشة النهاية -->
+      <section id="endScreen" class="card" style="margin-top:12px;display:none;text-align:center">
+        <h2>تهانينا! فريق المحققين انتصر</h2>
+        <p>شهادة تقدير من المحكمة العليا باسم الفريق: <span id="winnerName"></span></p>
+        <button id="newGameBtn">بدء لعبة جديدة (للعودة إلى رمز الغرفة)</button>
+      </section>
+
+    </main>
+
+    <footer style="text-align:center;padding:12px;color:#666">تصميم وتكامل مع Firebase — ضع صور المجرمين بنفس المجلد بالاسم: creminal1.jpg ... creminal10.jpg</footer>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+  <script>
+    // تهيئة فايربيس باستخدام الإعداد الذي أرسلته
+    const firebaseConfig = {
+      apiKey: "AIzaSyAcIwwapktH2nxyZczVKFacTrLh1o-EgdM",
+      authDomain: "shakkak-8f90f.firebaseapp.com",
+      databaseURL: "https://shakkak-8f90f-default-rtdb.firebaseio.com",
+      projectId: "shakkak-8f90f",
+      storageBucket: "shakkak-8f90f.firebasestorage.app",
+      messagingSenderId: "1039276785290",
+      appId: "1:1039276785290:web:ed874a451b37fb3210f773",
+      measurementId: "G-QRH0Z1HM5R"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // عناصر DOM
+    const createRoomBtn = document.getElementById('createRoomBtn');
+    const joinRoomBtn = document.getElementById('joinRoomBtn');
+    const roomCodeInput = document.getElementById('roomCodeInput');
+    const playerNameInput = document.getElementById('playerName');
+    const roomInfo = document.getElementById('roomInfo');
+    const roomCodeDisplay = document.getElementById('roomCodeDisplay');
+    const roomLink = document.getElementById('roomLink');
+
+    const lobby = document.getElementById('lobby');
+    const roomSection = document.getElementById('room');
+    const meNameSpan = document.getElementById('meName');
+    const redList = document.getElementById('redList');
+    const blueList = document.getElementById('blueList');
+    const teamSelect = document.getElementById('teamSelect');
+    const roleSelect = document.getElementById('roleSelect');
+    const setRoleBtn = document.getElementById('setRoleBtn');
+    const startGameBtn = document.getElementById('startGameBtn');
+    const leaveRoomBtn = document.getElementById('leaveRoomBtn');
+
+    const gameArea = document.getElementById('gameArea');
+    const cardsWrap = document.getElementById('cardsWrap');
+    const turnBanner = document.getElementById('turnBanner');
+    const turnText = document.getElementById('turnText');
+    const remainingSelect = document.getElementById('remainingSelect');
+    const endSelectionBtn = document.getElementById('endSelectionBtn');
+
+    const endScreen = document.getElementById('endScreen');
+    const winnerName = document.getElementById('winnerName');
+    const newGameBtn = document.getElementById('newGameBtn');
+
+    // حالة محلية
+    let currentRoom = null;
+    let myId = null;
+    let myName = '';
+
+    // توليد كود غرفة ست عشري بسيط
+    function genRoomCode(){
+      return Math.random().toString(36).slice(2,8).toUpperCase();
+    }
+
+    function showMessage(msg){alert(msg)}
+
+    // إنشاء غرفة
+    createRoomBtn.addEventListener('click',async ()=>{
+      const name = playerNameInput.value.trim();
+      if(!name)return showMessage('اكتب اسمك قبل إنشاء الغرفة');
+      myName = name; myId = 'p_'+Date.now()+Math.floor(Math.random()*999);
+      const code = genRoomCode();
+      currentRoom = code;
+      const roomRef = db.ref('rooms/'+code);
+      // تهيئة بيانات الغرفة
+      await roomRef.set({
+        createdAt: firebase.database.ServerValue.TIMESTAMP,
+        state: 'waiting',
+        owner: myId,
+        players: {
+          [myId]:{name:myName,team:'red',role:'investigator'}
+        }
+      });
+      onEnterRoom();
+    });
+
+    // دخول غرفة
+    joinRoomBtn.addEventListener('click',async ()=>{
+      const name = playerNameInput.value.trim();
+      const code = roomCodeInput.value.trim().toUpperCase();
+      if(!name || !code) return showMessage('ادخل اسمك ورمز الغرفة');
+      myName = name; myId = 'p_'+Date.now()+Math.floor(Math.random()*999);
+      currentRoom = code;
+      const roomRef = db.ref('rooms/'+code+'/players/'+myId);
+      // أضف اللاعب
+      await roomRef.set({name:myName,team:'red',role:'investigator'});
+      onEnterRoom();
+    });
+
+    async function onEnterRoom(){
+      lobby.style.display='none';
+      roomSection.style.display='block';
+      meNameSpan.textContent = myName;
+      // عرض رمز الغرفة
+      roomInfo.style.display='block';
+      roomCodeDisplay.textContent = currentRoom;
+      roomLink.href = location.href + '#room=' + currentRoom;
+      roomLink.textContent = location.href + '#room=' + currentRoom;
+
+      // استمع لتغييرات الغرفة
+      const roomRef = db.ref('rooms/'+currentRoom);
+      roomRef.on('value', snapshot =>{
+        const data = snapshot.val();
+        if(!data) return showMessage('تم إغلاق الغرفة');
+        // تحديث لائحة اللاعبين
+        const players = data.players||{};
+        renderPlayers(players);
+        // حالة اللعبة
+        const state = data.state||'waiting';
+        if(state === 'playing'){
+          roomSection.querySelector('#gameArea').style.display='block';
+          lobby.style.display='none';
+          gameArea.style.display='block';
+        }else{
+          gameArea.style.display='none';
+        }
+        // بيانات اللعبة
+        if(data.game){
+          renderGame(data.game);
+        }
+      });
+
+      // عند الخروج من الصفحة إزالة اللاعب
+      window.addEventListener('beforeunload', ()=>{
+        db.ref('rooms/'+currentRoom+'/players/'+myId).remove();
+      });
+    }
+
+    function renderPlayers(players){
+      redList.innerHTML=''; blueList.innerHTML='';
+      for(const id in players){
+        const p = players[id];
+        const el = document.createElement('div');
+        el.textContent = p.name + (id===myId? ' (أنت)':'');
+        if(p.team==='red') redList.appendChild(el); else blueList.appendChild(el);
+      }
+    }
+
+    // ضبط الفريق والدور
+    setRoleBtn.addEventListener('click', ()=>{
+      const team = teamSelect.value; const role = roleSelect.value;
+      if(!currentRoom) return;
+      db.ref('rooms/'+currentRoom+'/players/'+myId).update({team,role});
+    });
+
+    // بدء اللعب — فقط المالك أو أي شخص يمكنه الضغط
+    startGameBtn.addEventListener('click', async ()=>{
+      if(!currentRoom) return;
+      const roomRef = db.ref('rooms/'+currentRoom);
+      // تهيئة اللعبة: تعيين مجرم عشوائي بين 1..10
+      const murdererIndex = Math.floor(Math.random()*10)+1; // 1..10
+      const initCards = {};
+      for(let i=1;i<=10;i++) initCards['c'+i] = {index:i,removed:false,selectedBy:{}};
+      const game = {
+        murderer: murdererIndex,
+        turn: 'red',
+        round: 0,
+        remainingSelect:5,
+        cards:initCards,
+        status:'playing'
+      };
+      await roomRef.update({state:'playing',game});
+    });
+
+    // تصيير واجهة اللعبة بناء على بيانات اللعبة
+    function renderGame(game){
+      // تغيير لون الخلفية حسب الدور
+      if(game.turn==='red') document.body.style.background = 'linear-gradient(180deg, rgba(255,104,104,0.06), var(--bg))';
+      else document.body.style.background = 'linear-gradient(180deg, rgba(90,160,255,0.06), var(--bg))';
+
+      turnText.textContent = (game.turn==='red'?'الفريق الأحمر':'الفريق الأزرق');
+      remainingSelect.textContent = game.remainingSelect;
+
+      // عرض البطاقات
+      cardsWrap.innerHTML='';
+      for(let i=1;i<=10;i++){
+        const key = 'c'+i; const c = game.cards[key];
+        if(!c) continue;
+        if(c.removed) continue; // اذا تم استبعادها
+        const div = document.createElement('div'); div.className='card-item';
+        div.id = 'card_'+i;
+        const img = document.createElement('img');
+        img.src = 'creminal'+i+'.jpg';
+        const name = document.createElement('div'); name.textContent = 'مشتبه '+i;
+        const footer = document.createElement('div'); footer.className='card-footer';
+        const icon = document.createElement('button'); icon.className='icon-btn'; icon.innerHTML='✋';
+        // عند الضغط على الايقونة — التحديد النهائي للبطاقة من قبل اللاعب
+        icon.addEventListener('click',()=>{
+          attemptSelectCard(i);
+        });
+        // عند الضغط على البطاقة نفسها — تظهر قائمة من ضغط عليها (المحققون فقط)
+        div.addEventListener('click',()=>{
+          showWhoPressed(i);
+        });
+        const badge = document.createElement('span'); badge.className='selected-badge'; badge.textContent = Object.keys(c.selectedBy||{}).length + ' تم التحضير';
+        footer.appendChild(icon); footer.appendChild(badge);
+        div.appendChild(img); div.appendChild(name); div.appendChild(footer);
+        cardsWrap.appendChild(div);
+      }
+    }
+
+    // محاولة تحديد البطاقة (كالنقر على ايقونة اليد)
+    async function attemptSelectCard(i){
+      if(!currentRoom) return;
+      const pRef = db.ref('rooms/'+currentRoom+'/players/'+myId);
+      const snap = await pRef.once('value');
+      const p = snap.val();
+      if(!p) return;
+      // فقط المحققون في الفريق صاحب الدور يمكنهم الضغط لإضافة أسمائهم (لاحقاً الايقونة تؤكد)
+      const roomGameSnap = await db.ref('rooms/'+currentRoom+'/game').once('value');
+      const game = roomGameSnap.val();
+      if(!game) return;
+      if(p.role !== 'investigator') return showMessage('فقط المحققين يمكنهم التحضير للبطاقات');
+      if(p.team !== game.turn) return showMessage('ليس دور فريقك الآن');
+      // اضف الاسم الى selectedBy
+      const key = 'c'+i;
+      const selRef = db.ref('rooms/'+currentRoom+'/game/cards/'+key+'/selectedBy/'+myId);
+      await selRef.set({name: p.name});
+      // لا نخصم العدد بعد — الخصم يحدث عند الضغط على الايقونة الانتهاء من الفريق
+    }
+
+    // عرض من ضغطوا على بطاقة (المحققون يمكنهم رؤية اسماء من ضغط)
+    async function showWhoPressed(i){
+      const snap = await db.ref('rooms/'+currentRoom+'/game/cards/c'+i+'/selectedBy').once('value');
+      const data = snap.val()||{};
+      const names = Object.values(data).map(x=>x.name);
+      showMessage('ضغط على البطاقة: ' + (names.length? names.join(', '): 'لا أحد حتى الآن'));
+    }
+
+    // نهاية اختيار الفريق — يتم الضغط من قِبل عضو يملك دور شاهد العيان للرد او بالنظام نتنقل الدور
+    endSelectionBtn.addEventListener('click', async ()=>{
+      if(!currentRoom) return;
+      const roomGameRef = db.ref('rooms/'+currentRoom+'/game');
+      const gameSnap = await roomGameRef.once('value');
+      const game = gameSnap.val();
+      if(!game) return;
+      // التبديل إلى دور الآخر بعد إنهاء الاختيارات
+      const nextTurn = (game.turn==='red')? 'blue':'red';
+      // بحسب النظام: rounds وremainingSelect تنقص بعد كل مرحلة محققين
+      const nextRound = (game.round||0) + 1;
+      // تسلسل الاختيارات: 5,4,3,2,1
+      const selectSequence = [5,4,3,2,1];
+      const nextRemaining = selectSequence[Math.min(nextRound, selectSequence.length)-1] || 1;
+      await roomGameRef.update({turn: nextTurn, round: nextRound, remainingSelect: nextRemaining});
+
+      // اذا انتهت كل الدورات او المجرم اصيب — سيتم التحقق لاحقاً عند لوحة الشاهد
+      // اذا كان الشاهد الحالي في الغرفة: نعرض له زرين عن طريق واجهة بسيطة
+      // لتنفيذ قرار الشاهد نستخدم مسارين: شاهد يضغط "المجرم ضمن المحددين" او "ليس ضمن المحددين"
+      // لكن هنا سننتقل للسماع لتصرف الشاهد عبر واجهة مخصصة
+      listenForWitnessActions();
+    });
+
+    // وظيفة استماع بسيطة لافعال الشاهد — تعرض نافذة للمستخدم اذا كان شاهد
+    function listenForWitnessActions(){
+      // اذا كنت شاهد عيان وعليك ان تجيب
+      db.ref('rooms/'+currentRoom+'/players/'+myId).once('value').then(snap=>{
+        const p = snap.val();
+        if(!p) return;
+        if(p.role==='witness'){
+          // عرض نافذة تأكيد صغيرة
+          const yes = confirm('هل المجرم ضمن المحددين الآن؟ اضغط موافق اذا نعم، إلغاء اذا لا');
+          handleWitnessAnswer(yes);
+        }
+      });
+    }
+
+    // معالجة جواب الشاهد
+    async function handleWitnessAnswer(isMurdererWithin){
+      const gameRef = db.ref('rooms/'+currentRoom+'/game');
+      const gameSnap = await gameRef.once('value');
+      const game = gameSnap.val();
+      if(!game) return;
+      if(isMurdererWithin){
+        // نبحث في البطاقات المحددة لنجد المجرم ونحذفه
+        const cards = game.cards||{};
+        for(const k in cards){
+          const c = cards[k];
+          if(c.removed) continue;
+          const sel = c.selectedBy || {};
+          if(Object.keys(sel).length===0) continue;
+          // إذا كانت إحدى هذه البطاقات هي المجرم
+          if(c.index === game.murderer){
+            // شطب البطاقة
+            await gameRef.child('cards/'+k+'/removed').set(true);
+            // تحقق هل بقي بطاقات للمجرم — إذا انتهت نفوز
+            // هنا ببساطة نعلن فوز المحققين
+            await db.ref('rooms/'+currentRoom).update({state:'ended'});
+            await db.ref('rooms/'+currentRoom+'/game/status').set('ended');
+            await db.ref('rooms/'+currentRoom+'/game/winner').set('investigators');
+            showEndScreen('فريق المحققين');
+            return;
+          }
+        }
+        // اذا اجاب شاهد ان المجرم ضمن المحددين لكن لم نعثر عليه — نكمل اللعب
+        showMessage('لم نعثر على المجرم في المحددين، الاستمرار في اللعب');
+      }else{
+        showMessage('الشاهد أكد أن المجرم ليس ضمن المحددين — تستمر اللعبة');
+      }
+    }
+
+    // اظهار شاشة النهاية محلياً
+    function showEndScreen(name){
+      roomSection.style.display='none';
+      endScreen.style.display='block';
+      winnerName.textContent = name;
+    }
+
+    // زر بدء لعبة جديدة — يُرجع المستخدم الى صفحة رمز الغرفة
+    newGameBtn.addEventListener('click', ()=>{
+      endScreen.style.display='none';
+      lobby.style.display='block';
+      roomInfo.style.display='none';
+      roomSection.style.display='none';
+    });
+
+    // مغادرة الغرفة
+    leaveRoomBtn.addEventListener('click', async ()=>{
+      if(!currentRoom) return;
+      await db.ref('rooms/'+currentRoom+'/players/'+myId).remove();
+      currentRoom = null; myId=null; myName='';
+      roomSection.style.display='none'; lobby.style.display='block';
+    });
+
+    // عند فتح الصفحة مع رمز في الهاش
+    window.addEventListener('load', ()=>{
+      const h = location.hash; if(!h) return;
+      const m = h.match(/room=([A-Z0-9]+)/);
+      if(m){ roomCodeInput.value = m[1]; }
+    });
+
+  </script>
+</body>
+</html>
