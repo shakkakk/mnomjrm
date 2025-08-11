@@ -230,6 +230,13 @@
             color: white;
             border-color: #667eea;
         }
+        
+        .role-btn[disabled] {
+            cursor: not-allowed;
+            opacity: 0.5;
+            background: #f1f1f1;
+        }
+
 
         .game-area {
             display: none;
@@ -863,22 +870,19 @@
                 
                 const playerName = currentPlayer.name;
 
-                // Remove player from any other team/role
-                if (updatedTeams.red) {
-                    if (Array.isArray(updatedTeams.red.detectives)) {
-                        updatedTeams.red.detectives = updatedTeams.red.detectives.filter(p => p !== playerName);
-                    }
-                    if (updatedTeams.red.witness === playerName) {
-                        updatedTeams.red.witness = null;
-                    }
+                // Check if witness role is already taken in the selected team
+                if (role === 'witness' && updatedTeams[team].witness && updatedTeams[team].witness !== playerName) {
+                    showErrorMessage(`يوجد بالفعل شاهد عيان في فريق ${team === 'red' ? 'الأحمر' : 'الأزرق'}.`);
+                    return;
                 }
-                
-                if (updatedTeams.blue) {
-                    if (Array.isArray(updatedTeams.blue.detectives)) {
-                        updatedTeams.blue.detectives = updatedTeams.blue.detectives.filter(p => p !== playerName);
+
+                // Remove player from any other team/role
+                for (const t of ['red', 'blue']) {
+                    if (updatedTeams[t].witness === playerName) {
+                        updatedTeams[t].witness = null;
                     }
-                    if (updatedTeams.blue.witness === playerName) {
-                        updatedTeams.blue.witness = null;
+                    if (updatedTeams[t].detectives && Array.isArray(updatedTeams[t].detectives)) {
+                        updatedTeams[t].detectives = updatedTeams[t].detectives.filter(p => p !== playerName);
                     }
                 }
 
@@ -1155,31 +1159,32 @@
                 // Update role button styles based on current player selection
                 document.querySelectorAll('.role-btn').forEach(btn => {
                     btn.classList.remove('selected');
+                    btn.disabled = false;
                 });
                 
                 // Disable buttons for criminal
                 if (currentPlayer && gameState.criminal === currentPlayer.name) {
                     document.querySelectorAll('.role-btn').forEach(btn => {
                         btn.disabled = true;
-                        btn.style.opacity = '0.5';
-                        btn.style.cursor = 'not-allowed';
                     });
                 } else {
-                    // Enable buttons for non-criminals and highlight current selection
-                    document.querySelectorAll('.role-btn').forEach(btn => {
-                        btn.disabled = false;
-                        btn.style.opacity = '1';
-                        btn.style.cursor = 'pointer';
-                    });
-                    
-                    if (gameState.teams.red && gameState.teams.red.detectives && gameState.teams.red.detectives.includes(currentPlayer.name)) {
+                    // Highlight current player's role
+                    if (gameState.teams.red.detectives.includes(currentPlayer.name)) {
                         document.querySelector('[data-team="red"][data-role="detective"]').classList.add('selected');
-                    } else if (gameState.teams.red && gameState.teams.red.witness === currentPlayer.name) {
+                    } else if (gameState.teams.red.witness === currentPlayer.name) {
                         document.querySelector('[data-team="red"][data-role="witness"]').classList.add('selected');
-                    } else if (gameState.teams.blue && gameState.teams.blue.detectives && gameState.teams.blue.detectives.includes(currentPlayer.name)) {
+                    } else if (gameState.teams.blue.detectives.includes(currentPlayer.name)) {
                         document.querySelector('[data-team="blue"][data-role="detective"]').classList.add('selected');
-                    } else if (gameState.teams.blue && gameState.teams.blue.witness === currentPlayer.name) {
+                    } else if (gameState.teams.blue.witness === currentPlayer.name) {
                         document.querySelector('[data-team="blue"][data-role="witness"]').classList.add('selected');
+                    }
+                    
+                    // Disable witness button if already taken by another player
+                    if (gameState.teams.red.witness && gameState.teams.red.witness !== currentPlayer.name) {
+                        document.querySelector('[data-team="red"][data-role="witness"]').disabled = true;
+                    }
+                    if (gameState.teams.blue.witness && gameState.teams.blue.witness !== currentPlayer.name) {
+                        document.querySelector('[data-team="blue"][data-role="witness"]').disabled = true;
                     }
                 }
             }
