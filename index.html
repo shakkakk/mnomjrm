@@ -800,14 +800,20 @@
 
                 // Remove player from any other team/role
                 if (updatedTeams.red) {
-                    updatedTeams.red.detectives = updatedTeams.red.detectives.filter(p => p !== playerName);
+                    // FIX: Ensure detectives is an array before calling filter
+                    if (Array.isArray(updatedTeams.red.detectives)) {
+                        updatedTeams.red.detectives = updatedTeams.red.detectives.filter(p => p !== playerName);
+                    }
                     if (updatedTeams.red.witness === playerName) {
                         updatedTeams.red.witness = null;
                     }
                 }
                 
                 if (updatedTeams.blue) {
-                    updatedTeams.blue.detectives = updatedTeams.blue.detectives.filter(p => p !== playerName);
+                    // FIX: Ensure detectives is an array before calling filter
+                    if (Array.isArray(updatedTeams.blue.detectives)) {
+                        updatedTeams.blue.detectives = updatedTeams.blue.detectives.filter(p => p !== playerName);
+                    }
                     if (updatedTeams.blue.witness === playerName) {
                         updatedTeams.blue.witness = null;
                     }
@@ -1041,7 +1047,7 @@
                 let redHTML = '<div style="margin-top: 15px;">';
                 redHTML += '<h4 style="color: #dc3545; margin-bottom: 10px;">المحققون:</h4>';
                 // --- FIX: Ensure detectives array exists before iterating ---
-                if (gameState.teams.red.detectives && gameState.teams.red.detectives.length > 0) {
+                if (gameState.teams.red && gameState.teams.red.detectives && gameState.teams.red.detectives.length > 0) {
                     gameState.teams.red.detectives.forEach(detective => {
                         redHTML += `<div style="background: #f8f9fa; padding: 8px; margin: 5px 0; border-radius: 5px; border-right: 3px solid #dc3545;">👮 ${detective}</div>`;
                     });
@@ -1050,7 +1056,7 @@
                 }
                 
                 redHTML += '<h4 style="color: #dc3545; margin: 15px 0 10px 0;">شاهد العيان:</h4>';
-                if (gameState.teams.red.witness) {
+                if (gameState.teams.red && gameState.teams.red.witness) {
                     redHTML += `<div style="background: #f8f9fa; padding: 8px; margin: 5px 0; border-radius: 5px; border-right: 3px solid #dc3545;">👁️ ${gameState.teams.red.witness}</div>`;
                 } else {
                     redHTML += '<div style="color: #666; font-style: italic;">غير محدد</div>';
@@ -1062,7 +1068,7 @@
                 let blueHTML = '<div style="margin-top: 15px;">';
                 blueHTML += '<h4 style="color: #007bff; margin-bottom: 10px;">المحققون:</h4>';
                 // --- FIX: Ensure detectives array exists before iterating ---
-                if (gameState.teams.blue.detectives && gameState.teams.blue.detectives.length > 0) {
+                if (gameState.teams.blue && gameState.teams.blue.detectives && gameState.teams.blue.detectives.length > 0) {
                     gameState.teams.blue.detectives.forEach(detective => {
                         blueHTML += `<div style="background: #f8f9fa; padding: 8px; margin: 5px 0; border-radius: 5px; border-right: 3px solid #007bff;">👮 ${detective}</div>`;
                     });
@@ -1071,7 +1077,7 @@
                 }
                 
                 blueHTML += '<h4 style="color: #007bff; margin: 15px 0 10px 0;">شاهد العيان:</h4>';
-                if (gameState.teams.blue.witness) {
+                if (gameState.teams.blue && gameState.teams.blue.witness) {
                     blueHTML += `<div style="background: #f8f9fa; padding: 8px; margin: 5px 0; border-radius: 5px; border-right: 3px solid #007bff;">👁️ ${gameState.teams.blue.witness}</div>`;
                 } else {
                     blueHTML += '<div style="color: #666; font-style: italic;">غير محدد</div>';
@@ -1084,7 +1090,7 @@
                     const hasAllRoles = gameState.criminal && 
                                       gameState.teams.red.witness && 
                                       gameState.teams.blue.witness &&
-                                      (gameState.teams.red.detectives.length > 0 || gameState.teams.blue.detectives.length > 0);
+                                      ((gameState.teams.red.detectives && gameState.teams.red.detectives.length > 0) || (gameState.teams.blue.detectives && gameState.teams.blue.detectives.length > 0));
                     
                     document.getElementById('startGameBtn2').style.display = hasAllRoles ? 'block' : 'none';
                 }
@@ -1110,11 +1116,11 @@
                     });
                     
                     // Highlight current player's role
-                    if (gameState.teams.red && gameState.teams.red.detectives.includes(currentPlayer.name)) {
+                    if (gameState.teams.red && gameState.teams.red.detectives && gameState.teams.red.detectives.includes(currentPlayer.name)) {
                         document.querySelector('[data-team="red"][data-role="detective"]').classList.add('selected');
                     } else if (gameState.teams.red && gameState.teams.red.witness === currentPlayer.name) {
                         document.querySelector('[data-team="red"][data-role="witness"]').classList.add('selected');
-                    } else if (gameState.teams.blue && gameState.teams.blue.detectives.includes(currentPlayer.name)) {
+                    } else if (gameState.teams.blue && gameState.teams.blue.detectives && gameState.teams.blue.detectives.includes(currentPlayer.name)) {
                         document.querySelector('[data-team="blue"][data-role="detective"]').classList.add('selected');
                     } else if (gameState.teams.blue && gameState.teams.blue.witness === currentPlayer.name) {
                         document.querySelector('[data-team="blue"][data-role="witness"]').classList.add('selected');
