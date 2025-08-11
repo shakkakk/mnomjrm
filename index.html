@@ -6,6 +6,7 @@
     <title>من المجرم المطلوب</title>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
         * {
             margin: 0;
@@ -594,8 +595,7 @@
             </div>
 
             <div style="text-align: center;">
-                <button class="btn btn-default" id="readyBtn" style="display: none;">جاهز للعب</button>
-                <button class="btn btn-success" id="startGameBtn2" style="display: none;">بدء اللعبة</button>
+                <button class="btn btn-success hidden" id="startGameBtn2" onclick="startActualGame()">بدء اللعبة</button>
             </div>
         </div>
 
@@ -612,7 +612,7 @@
             <div class="criminals-grid" id="criminalPositionGrid"></div>
 
             <div class="game-controls">
-                <button class="btn btn-success" id="confirmPositionBtn" style="display: none;">تأكيد الموقع</button>
+                <button class="btn btn-success hidden" id="confirmPositionBtn">تأكيد الموقع</button>
             </div>
         </div>
 
@@ -875,7 +875,6 @@
             }
         }
 
-        // --- NEW IMPLEMENTATION: Starts the loading screen and then sets the game state ---
         function startGame() {
             if (!currentPlayer.isHost) return;
 
@@ -883,17 +882,14 @@
                 const players = playersSnapshot.val();
                 const playerNames = players ? Object.keys(players) : [];
                 
-                // Check to ensure there are at least 5 players
                 if (playerNames.length < 5) {
                     showRoomErrorMessage('يجب أن يكون عدد اللاعبين 5 على الأقل لبدء اللعبة.');
                     return;
                 }
                 
-                // Hide the room screen and show the loading screen
                 document.getElementById('roomScreen').classList.add('hidden');
                 document.getElementById('gameLoadingScreen').classList.remove('hidden');
                 
-                // Simulate a loading delay before updating the game state
                 setTimeout(() => {
                     const randomIndex = Math.floor(Math.random() * playerNames.length);
                 
@@ -910,7 +906,6 @@
                     
                     database.ref('rooms/' + currentRoom + '/gameState').set(newGameState).catch(error => {
                         console.error("خطأ في بدء اللعبة:", error);
-                        // Hide loading screen on error and show room screen again
                         document.getElementById('gameLoadingScreen').classList.add('hidden');
                         document.getElementById('roomScreen').classList.remove('hidden');
                     });
@@ -918,51 +913,47 @@
             });
         }
         
-        // --- FIX from previous request ---
+        // --- UPDATED: Simpler and more direct role selection ---
         function selectRole(event) {
-            const button = event.target;
-            const team = button.dataset.team;
-            const role = button.dataset.role;
-        
+            // تحقق من أن اللعبة في مرحلة اختيار الفرق وأن اللاعب الحالي ليس المجرم
             if (gameState.phase !== 'teams' || gameState.criminal === currentPlayer.name) {
                 return;
             }
-        
+
+            const button = event.target;
+            const team = button.dataset.team;
+            const role = button.dataset.role;
+            const playerName = currentPlayer.name;
+
+            // احصل على حالة الفرق الحالية من Firebase
             database.ref('rooms/' + currentRoom + '/gameState/teams').once('value').then(teamsSnapshot => {
-                const updatedTeams = teamsSnapshot.val() || {
+                const teamsData = teamsSnapshot.val() || {
                     red: { detectives: [], witness: null },
                     blue: { detectives: [], witness: null }
                 };
-                const playerName = currentPlayer.name;
-        
-                // Defensive check: Ensure the team object exists before trying to access its properties.
-                if (!updatedTeams[team]) {
-                    updatedTeams[team] = { detectives: [], witness: null };
-                }
-        
-                // Check if witness role is already taken in the selected team
-                if (role === 'witness' && updatedTeams[team].witness && updatedTeams[team].witness !== playerName) {
+
+                // إذا كان الدور هو "شاهد عيان" وتوجد بالفعل شخص آخر في هذا الدور، امنع الاختيار
+                if (role === 'witness' && teamsData[team].witness && teamsData[team].witness !== playerName) {
                     showToast(`يوجد بالفعل شاهد عيان في فريق ${team === 'red' ? 'الأحمر' : 'الأزرق'}.`);
                     return;
                 }
-        
-                // Check if the player is already in this role
-                if ((role === 'witness' && updatedTeams[team].witness === playerName) ||
-                    (role === 'detective' && updatedTeams[team].detectives && updatedTeams[team].detectives.includes(playerName))) {
-                    return;
-                }
-        
-                // Remove player from any other team/role first
+
+                // أنشئ نسخة جديدة من حالة الفرق لتحديثها محليًا
+                let updatedTeams = JSON.parse(JSON.stringify(teamsData));
+
+                // إزالة اللاعب الحالي من أي فريق أو دور سابق
                 for (const t of ['red', 'blue']) {
+                    // إذا كان اللاعب هو شاهد العيان في فريق آخر
                     if (updatedTeams[t].witness === playerName) {
                         updatedTeams[t].witness = null;
                     }
+                    // إذا كان اللاعب هو محقق في فريق آخر
                     if (updatedTeams[t].detectives && Array.isArray(updatedTeams[t].detectives)) {
                         updatedTeams[t].detectives = updatedTeams[t].detectives.filter(p => p !== playerName);
                     }
                 }
-        
-                // Add player to the new team/role
+
+                // إضافة اللاعب إلى الدور الجديد
                 if (role === 'detective') {
                     if (!updatedTeams[team].detectives) {
                         updatedTeams[team].detectives = [];
@@ -971,31 +962,54 @@
                 } else if (role === 'witness') {
                     updatedTeams[team].witness = playerName;
                 }
-        
+
+                // تحديث حالة اللاعبين في قاعدة البيانات
                 database.ref('rooms/' + currentRoom + '/gameState/teams').set(updatedTeams).catch(error => {
                     console.error("خطأ في اختيار الدور:", error);
                 });
             });
         }
 
-        function playerReady() {
-            database.ref('rooms/' + currentRoom + '/players/' + currentPlayer.name + '/ready').set(true);
-        }
-
         function startActualGame() {
             if (!currentPlayer.isHost) return;
             
-            database.ref('rooms/' + currentRoom + '/gameState').once('value').then(gameStateSnapshot => {
-                const currentGameState = gameStateSnapshot.val() || {};
-                const newGameState = {
-                    ...currentGameState,
-                    phase: 'criminalSelection',
-                    criminalPosition: null,
-                    criminalMoves: 2
-                };
+            database.ref('rooms/' + currentRoom + '/gameState/teams').once('value').then(teamsSnapshot => {
+                const teamsData = teamsSnapshot.val() || { red: { detectives: [], witness: null }, blue: { detectives: [], witness: null }};
                 
-                database.ref('rooms/' + currentRoom + '/gameState').set(newGameState).catch(error => {
-                    console.error("خطأ في بدء اللعبة الفعلية:", error);
+                // Collect all players from both teams
+                const allTeamPlayers = [
+                    ...(teamsData.red.detectives || []),
+                    teamsData.red.witness,
+                    ...(teamsData.blue.detectives || []),
+                    teamsData.blue.witness
+                ].filter(Boolean); // Filter out nulls and undefined
+                
+                // Get all players in the room (excluding the host if they are the criminal)
+                database.ref('rooms/' + currentRoom + '/players').once('value').then(playersSnapshot => {
+                    const playersInRoom = Object.keys(playersSnapshot.val() || {});
+                    
+                    // The criminal doesn't have a role, so we check if all other players have roles
+                    const nonCriminalPlayers = playersInRoom.filter(p => p !== gameState.criminal);
+                    
+                    if (allTeamPlayers.length !== nonCriminalPlayers.length) {
+                        showToast('يجب على جميع اللاعبين اختيار دور قبل بدء اللعبة.');
+                        return;
+                    }
+
+                    // Proceed to the next phase
+                    database.ref('rooms/' + currentRoom + '/gameState').once('value').then(gameStateSnapshot => {
+                        const currentGameState = gameStateSnapshot.val() || {};
+                        const newGameState = {
+                            ...currentGameState,
+                            phase: 'criminalSelection',
+                            criminalPosition: null,
+                            criminalMoves: 2
+                        };
+                        
+                        database.ref('rooms/' + currentRoom + '/gameState').set(newGameState).catch(error => {
+                            console.error("خطأ في بدء اللعبة الفعلية:", error);
+                        });
+                    });
                 });
             });
         }
@@ -1057,7 +1071,11 @@
             });
             
             document.getElementById('movesLeft').textContent = gameState.criminalMoves;
-            document.getElementById('confirmPositionBtn').style.display = gameState.criminalPosition !== null ? 'block' : 'none';
+            const confirmBtn = document.getElementById('confirmPositionBtn');
+            if (confirmBtn) {
+                confirmBtn.onclick = confirmCriminalPosition;
+                confirmBtn.classList.toggle('hidden', gameState.criminalPosition === null);
+            }
         }
 
         function selectCriminalPosition(index) {
@@ -1071,7 +1089,7 @@
             // Select new position
             gameState.criminalPosition = index;
             document.querySelector(`#criminalPositionGrid [data-index="${index}"]`).classList.add('selected');
-            document.getElementById('confirmPositionBtn').style.display = 'block';
+            document.getElementById('confirmPositionBtn').classList.remove('hidden');
         }
 
         function confirmCriminalPosition() {
@@ -1140,14 +1158,16 @@
                 document.getElementById('remainingMoves').textContent = gameState.criminalMoves;
                 
                 const changePosBtn = document.getElementById('changePosBtn');
-                if (gameState.criminalMoves <= 0) {
-                    changePosBtn.disabled = true;
-                    changePosBtn.textContent = 'لا توجد حركات متبقية';
-                    changePosBtn.style.background = '#6c757d';
-                } else {
-                    changePosBtn.disabled = false;
-                    changePosBtn.textContent = 'تغيير الموقع';
-                    changePosBtn.style.background = '#dc3545';
+                if (changePosBtn) {
+                    if (gameState.criminalMoves <= 0) {
+                        changePosBtn.disabled = true;
+                        changePosBtn.textContent = 'لا توجد حركات متبقية';
+                        changePosBtn.style.background = '#6c757d';
+                    } else {
+                        changePosBtn.disabled = false;
+                        changePosBtn.textContent = 'تغيير الموقع';
+                        changePosBtn.style.background = '#dc3545';
+                    }
                 }
             } else {
                 document.getElementById('criminalControls').classList.add('hidden');
@@ -1165,12 +1185,15 @@
                 btn.onclick = selectRole;
             });
             
-            document.getElementById('readyBtn').onclick = playerReady;
-            document.getElementById('startGameBtn2').onclick = startActualGame;
+            const startGameBtn2 = document.getElementById('startGameBtn2');
+            if (startGameBtn2) {
+                startGameBtn2.onclick = startActualGame;
+            }
             
             updateTeamDisplay();
         }
 
+        // --- UPDATED: Improved logic for showing the Start Game button ---
         function updateTeamDisplay() {
             const redMembers = document.getElementById('redTeamMembers');
             const blueMembers = document.getElementById('blueTeamMembers');
@@ -1231,20 +1254,6 @@
                 blueHTML += '</div>';
                 blueMembers.innerHTML = blueHTML;
                 
-                // Show start game button for host when all players are ready
-                const allPlayersReady = Object.values(gameState.players).every(p => p.ready || p.isHost || p.name === gameState.criminal);
-
-                if (currentPlayer && currentPlayer.isHost) {
-                    document.getElementById('startGameBtn2').style.display = allPlayersReady ? 'block' : 'none';
-                    document.getElementById('readyBtn').style.display = 'none';
-                } else if (currentPlayer && gameState.criminal !== currentPlayer.name) {
-                    document.getElementById('readyBtn').style.display = 'block';
-                    document.getElementById('startGameBtn2').style.display = 'none';
-                } else {
-                     document.getElementById('readyBtn').style.display = 'none';
-                     document.getElementById('startGameBtn2').style.display = 'none';
-                }
-
                 // Update role button styles and disable for criminal
                 document.querySelectorAll('.role-btn').forEach(btn => {
                     btn.classList.remove('selected');
@@ -1257,14 +1266,13 @@
                     });
                 } else {
                     // Highlight current player's role
-                    if (gameState.teams.red && gameState.teams.red.detectives && gameState.teams.red.detectives.includes(currentPlayer.name)) {
-                        document.querySelector('[data-team="red"][data-role="detective"]').classList.add('selected');
-                    } else if (gameState.teams.red && gameState.teams.red.witness === currentPlayer.name) {
-                        document.querySelector('[data-team="red"][data-role="witness"]').classList.add('selected');
-                    } else if (gameState.teams.blue && gameState.teams.blue.detectives && gameState.teams.blue.detectives.includes(currentPlayer.name)) {
-                        document.querySelector('[data-team="blue"][data-role="detective"]').classList.add('selected');
-                    } else if (gameState.teams.blue && gameState.teams.blue.witness === currentPlayer.name) {
-                        document.querySelector('[data-team="blue"][data-role="witness"]').classList.add('selected');
+                    const allTeams = { ...gameState.teams.red, ...gameState.teams.blue, detectives: [...(gameState.teams.red.detectives || []), ...(gameState.teams.blue.detectives || [])] };
+                    if (allTeams.detectives.includes(currentPlayer.name)) {
+                        const team = gameState.teams.red.detectives.includes(currentPlayer.name) ? 'red' : 'blue';
+                        document.querySelector(`[data-team="${team}"][data-role="detective"]`).classList.add('selected');
+                    } else if (allTeams.witness === currentPlayer.name) {
+                        const team = gameState.teams.red.witness === currentPlayer.name ? 'red' : 'blue';
+                        document.querySelector(`[data-team="${team}"][data-role="witness"]`).classList.add('selected');
                     }
                     
                     // Disable witness button if already taken by another player
@@ -1276,6 +1284,29 @@
                     }
                 }
             }
+
+            // Check if all non-criminal players have selected a role
+            database.ref('rooms/' + currentRoom + '/players').once('value').then(playersSnapshot => {
+                const playersInRoom = playersSnapshot.val() || {};
+                const nonCriminalPlayers = Object.keys(playersInRoom).filter(p => p !== gameState.criminal);
+                
+                const allTeamPlayers = [
+                    ...(gameState.teams.red.detectives || []),
+                    gameState.teams.red.witness,
+                    ...(gameState.teams.blue.detectives || []),
+                    gameState.teams.blue.witness
+                ].filter(Boolean); // Filter out nulls and undefined
+                
+                const allPlayersHaveRoles = allTeamPlayers.length === nonCriminalPlayers.length;
+                
+                // Show start game button for host when all players have selected a role
+                const startGameBtn2 = document.getElementById('startGameBtn2');
+                if (currentPlayer && currentPlayer.isHost && allPlayersHaveRoles) {
+                    startGameBtn2.classList.remove('hidden');
+                } else {
+                    startGameBtn2.classList.add('hidden');
+                }
+            });
         }
 
         function showGameScreen() {
@@ -1294,6 +1325,11 @@
             } else {
                 document.body.classList.add('blue-turn');
                 document.body.classList.remove('red-turn');
+            }
+            
+            const finishTurnBtn = document.getElementById('finishTurnBtn');
+            if (finishTurnBtn) {
+                finishTurnBtn.onclick = finishTurn;
             }
         }
 
@@ -1383,6 +1419,11 @@
         }
 
         function finishTurn() {
+            if (!gameState.teams[gameState.currentTeam] || !gameState.teams[gameState.currentTeam].detectives.includes(currentPlayer.name)) {
+                showToast("فقط المحققون يمكنهم إنهاء الدور!");
+                return;
+            }
+            
             if (gameState.selectedCriminals.length !== gameState.maxSelections) {
                 showToast(`يجب اختيار ${gameState.maxSelections} مشتبه بهم`);
                 return;
@@ -1421,21 +1462,28 @@
                 const newGameState = { ...currentGameState };
                 let winner = null;
                 
-                if (isIncluded) {
-                    newGameState.maxSelections = Math.max(1, newGameState.maxSelections - 1);
-                } else {
-                    // Switch to the other team for the next turn.
-                    newGameState.currentTeam = newGameState.currentTeam === 'red' ? 'blue' : 'red';
-                }
-
-                if (newGameState.maxSelections === 1 && isIncluded) {
-                    if (newGameState.selectedCriminals.includes(newGameState.targetCriminal)) {
+                // Check if the criminal is in the selected list
+                const isCriminalSelected = newGameState.selectedCriminals.includes(newGameState.criminalPosition);
+                
+                if (isIncluded === isCriminalSelected) {
+                    // Correct answer
+                    if (isCriminalSelected && newGameState.maxSelections === 1) {
+                        // The team has successfully found the criminal
                         winner = newGameState.currentTeam;
                     } else {
-                        winner = 'criminal';
+                        // The team is getting closer, reduce the number of selections
+                        newGameState.maxSelections = Math.max(1, newGameState.maxSelections - 1);
+                        newGameState.currentTeam = newGameState.currentTeam; // Keep the same turn
                     }
-                } else if (newGameState.maxSelections === 1 && !isIncluded) {
-                    winner = 'criminal';
+                } else {
+                    // Incorrect answer
+                    if (newGameState.maxSelections === 1) {
+                        // The team failed on their final guess
+                        winner = 'criminal';
+                    } else {
+                        // Switch to the other team for the next turn.
+                        newGameState.currentTeam = newGameState.currentTeam === 'red' ? 'blue' : 'red';
+                    }
                 }
 
                 if (winner) {
