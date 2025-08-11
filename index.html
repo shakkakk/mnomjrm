@@ -132,7 +132,7 @@
         }
 
         .room-info {
-            background: #f8f9fa;
+            background: white;
             border-radius: 15px;
             padding: 30px;
             margin: 20px 0;
@@ -465,6 +465,36 @@
             font-weight: bold;
         }
 
+        /* --- New CSS for Loading Screen --- */
+        .game-loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease;
+        }
+        .spinner {
+            border: 8px solid rgba(255, 255, 255, 0.1);
+            border-top: 8px solid #fff;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
         @media (max-width: 768px) {
             .game-title {
                 font-size: 2rem;
@@ -523,6 +553,12 @@
             </div>
 
             <button class="btn btn-danger" onclick="leaveRoom()">مغادرة الغرفة</button>
+        </div>
+
+        <!-- Game Loading Screen -->
+        <div id="gameLoadingScreen" class="game-loading-screen hidden">
+            <div class="spinner"></div>
+            <h2>جارٍ إعداد اللعبة...</h2>
         </div>
 
         <!-- Team Selection Screen -->
@@ -839,7 +875,7 @@
             }
         }
 
-        // Updated function to start the game, now with a player count check
+        // --- NEW IMPLEMENTATION: Starts the loading screen and then sets the game state ---
         function startGame() {
             if (!currentPlayer.isHost) return;
 
@@ -852,56 +888,70 @@
                     showRoomErrorMessage('يجب أن يكون عدد اللاعبين 5 على الأقل لبدء اللعبة.');
                     return;
                 }
-
-                const randomIndex = Math.floor(Math.random() * playerNames.length);
                 
-                const newGameState = {
-                    ...gameState,
-                    criminal: playerNames[randomIndex],
-                    phase: 'teams',
-                    targetCriminal: null,
-                    teams: {
-                        red: { detectives: [], witness: null },
-                        blue: { detectives: [], witness: null }
-                    }
-                };
+                // Hide the room screen and show the loading screen
+                document.getElementById('roomScreen').classList.add('hidden');
+                document.getElementById('gameLoadingScreen').classList.remove('hidden');
                 
-                database.ref('rooms/' + currentRoom + '/gameState').set(newGameState).catch(error => {
-                    console.error("خطأ في بدء اللعبة:", error);
-                });
+                // Simulate a loading delay before updating the game state
+                setTimeout(() => {
+                    const randomIndex = Math.floor(Math.random() * playerNames.length);
+                
+                    const newGameState = {
+                        ...gameState,
+                        criminal: playerNames[randomIndex],
+                        phase: 'teams',
+                        targetCriminal: null,
+                        teams: {
+                            red: { detectives: [], witness: null },
+                            blue: { detectives: [], witness: null }
+                        }
+                    };
+                    
+                    database.ref('rooms/' + currentRoom + '/gameState').set(newGameState).catch(error => {
+                        console.error("خطأ في بدء اللعبة:", error);
+                        // Hide loading screen on error and show room screen again
+                        document.getElementById('gameLoadingScreen').classList.add('hidden');
+                        document.getElementById('roomScreen').classList.remove('hidden');
+                    });
+                }, 3000); // 3-second delay to simulate loading
             });
         }
-
-        // FIX: The selectRole function is now simpler and correctly updates the database
+        
+        // --- FIX from previous request ---
         function selectRole(event) {
             const button = event.target;
             const team = button.dataset.team;
             const role = button.dataset.role;
-
+        
             if (gameState.phase !== 'teams' || gameState.criminal === currentPlayer.name) {
                 return;
             }
-
+        
             database.ref('rooms/' + currentRoom + '/gameState/teams').once('value').then(teamsSnapshot => {
                 const updatedTeams = teamsSnapshot.val() || {
                     red: { detectives: [], witness: null },
                     blue: { detectives: [], witness: null }
                 };
-                
                 const playerName = currentPlayer.name;
-
+        
+                // Defensive check: Ensure the team object exists before trying to access its properties.
+                if (!updatedTeams[team]) {
+                    updatedTeams[team] = { detectives: [], witness: null };
+                }
+        
                 // Check if witness role is already taken in the selected team
                 if (role === 'witness' && updatedTeams[team].witness && updatedTeams[team].witness !== playerName) {
                     showToast(`يوجد بالفعل شاهد عيان في فريق ${team === 'red' ? 'الأحمر' : 'الأزرق'}.`);
                     return;
                 }
-                
+        
                 // Check if the player is already in this role
                 if ((role === 'witness' && updatedTeams[team].witness === playerName) ||
                     (role === 'detective' && updatedTeams[team].detectives && updatedTeams[team].detectives.includes(playerName))) {
                     return;
                 }
-
+        
                 // Remove player from any other team/role first
                 for (const t of ['red', 'blue']) {
                     if (updatedTeams[t].witness === playerName) {
@@ -911,7 +961,7 @@
                         updatedTeams[t].detectives = updatedTeams[t].detectives.filter(p => p !== playerName);
                     }
                 }
-
+        
                 // Add player to the new team/role
                 if (role === 'detective') {
                     if (!updatedTeams[team].detectives) {
@@ -921,7 +971,7 @@
                 } else if (role === 'witness') {
                     updatedTeams[team].witness = playerName;
                 }
-                
+        
                 database.ref('rooms/' + currentRoom + '/gameState/teams').set(updatedTeams).catch(error => {
                     console.error("خطأ في اختيار الدور:", error);
                 });
@@ -1107,6 +1157,8 @@
         function showTeamScreen() {
             document.getElementById('roomScreen').classList.add('hidden');
             document.getElementById('teamScreen').classList.remove('hidden');
+            // Hide the loading screen here once the team screen is ready to display
+            document.getElementById('gameLoadingScreen').classList.add('hidden');
             
             // Add event listeners for team selection buttons
             document.querySelectorAll('.role-btn').forEach(btn => {
@@ -1127,7 +1179,7 @@
             if (gameState.criminal) {
                 criminalName.textContent = `👤 ${gameState.criminal}`;
                 if (currentPlayer && gameState.criminal === currentPlayer.name) {
-                    document.getElementById('criminalMessage').textContent = '🔴 أنت المجرم المطلوب! لا يمكنك الانضمام لأي فريق 🔴';
+                    document.getElementById('criminalMessage').textContent = '🔴 أنت المجرم المطلوب! لا يمكنك الانضمام لأي فريق �';
                     document.getElementById('criminalMessage').style.color = '#ffeb3b';
                 } else {
                     document.getElementById('criminalMessage').textContent = `${gameState.criminal} هو المجرم المطلوب - لا يمكنه الانضمام لأي فريق`;
@@ -1205,21 +1257,21 @@
                     });
                 } else {
                     // Highlight current player's role
-                    if (gameState.teams.red.detectives && gameState.teams.red.detectives.includes(currentPlayer.name)) {
+                    if (gameState.teams.red && gameState.teams.red.detectives && gameState.teams.red.detectives.includes(currentPlayer.name)) {
                         document.querySelector('[data-team="red"][data-role="detective"]').classList.add('selected');
-                    } else if (gameState.teams.red.witness === currentPlayer.name) {
+                    } else if (gameState.teams.red && gameState.teams.red.witness === currentPlayer.name) {
                         document.querySelector('[data-team="red"][data-role="witness"]').classList.add('selected');
-                    } else if (gameState.teams.blue.detectives && gameState.teams.blue.detectives.includes(currentPlayer.name)) {
+                    } else if (gameState.teams.blue && gameState.teams.blue.detectives && gameState.teams.blue.detectives.includes(currentPlayer.name)) {
                         document.querySelector('[data-team="blue"][data-role="detective"]').classList.add('selected');
-                    } else if (gameState.teams.blue.witness === currentPlayer.name) {
+                    } else if (gameState.teams.blue && gameState.teams.blue.witness === currentPlayer.name) {
                         document.querySelector('[data-team="blue"][data-role="witness"]').classList.add('selected');
                     }
                     
                     // Disable witness button if already taken by another player
-                    if (gameState.teams.red.witness && gameState.teams.red.witness !== currentPlayer.name) {
+                    if (gameState.teams.red && gameState.teams.red.witness && gameState.teams.red.witness !== currentPlayer.name) {
                         document.querySelector('[data-team="red"][data-role="witness"]').disabled = true;
                     }
-                    if (gameState.teams.blue.witness && gameState.teams.blue.witness !== currentPlayer.name) {
+                    if (gameState.teams.blue && gameState.teams.blue.witness && gameState.teams.blue.witness !== currentPlayer.name) {
                         document.querySelector('[data-team="blue"][data-role="witness"]').disabled = true;
                     }
                 }
@@ -1498,3 +1550,4 @@
     </script>
 </body>
 </html>
+�
