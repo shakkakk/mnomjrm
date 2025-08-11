@@ -415,6 +415,37 @@
             background: linear-gradient(135deg, #4ecdc4 0%, #44a08d 100%) !important;
         }
 
+        .toast-message {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.75);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 16px;
+            z-index: 1000;
+            animation: fadein 0.5s, fadeout 0.5s 2.5s;
+        }
+        @keyframes fadein {
+            from {bottom: 0; opacity: 0;}
+            to {bottom: 20px; opacity: 1;}
+        }
+        @keyframes fadeout {
+            from {bottom: 20px; opacity: 1;}
+            to {bottom: 0; opacity: 0;}
+        }
+        .error-message {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
         @media (max-width: 768px) {
             .game-title {
                 font-size: 2rem;
@@ -441,6 +472,7 @@
 
         <!-- Welcome Screen -->
         <div id="welcomeScreen" class="welcome-screen">
+            <div id="errorMessage" class="error-message hidden"></div>
             <div class="input-group">
                 <label for="playerName">اسم اللاعب</label>
                 <input type="text" id="playerName" placeholder="أدخل اسمك">
@@ -582,6 +614,9 @@
         </div>
     </div>
 
+    <!-- Toast Message Container -->
+    <div id="toastContainer"></div>
+
     <script>
         // Firebase Configuration
         const firebaseConfig = {
@@ -632,16 +667,40 @@
             return Math.random().toString(36).substr(2, 6).toUpperCase();
         }
 
+        // Function to show toast message
+        function showToast(message) {
+            const toastContainer = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = 'toast-message';
+            toast.textContent = message;
+            toastContainer.appendChild(toast);
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
+        }
+
+        // Function to show error message on welcome screen
+        function showErrorMessage(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.classList.remove('hidden');
+            setTimeout(() => {
+                errorDiv.classList.add('hidden');
+            }, 5000);
+        }
+
         function createRoom() {
             const playerName = document.getElementById('playerName').value.trim();
             if (!playerName) {
-                console.error('يرجى إدخال اسم اللاعب');
+                showErrorMessage('يرجى إدخال اسم اللاعب');
                 return;
             }
 
             currentRoom = generateRoomCode();
             currentPlayer = { name: playerName, isHost: true };
 
+            // Check if player name is already used in the new room (though unlikely, it's good practice)
+            // This is a placeholder since the room is new, but the check is similar to joinRoom
             const roomData = {
                 host: playerName,
                 players: { [playerName]: { name: playerName, isHost: true, ready: false } },
@@ -654,6 +713,7 @@
                 listenToRoom();
             }).catch(error => {
                 console.error("خطأ في إنشاء الغرفة:", error);
+                showErrorMessage("فشل إنشاء الغرفة. يرجى المحاولة مرة أخرى.");
             });
         }
 
@@ -662,12 +722,19 @@
             const roomCode = document.getElementById('roomCode').value.trim().toUpperCase();
 
             if (!playerName || !roomCode) {
-                console.error('يرجى إدخال اسم اللاعب ورمز الغرفة');
+                showErrorMessage('يرجى إدخال اسم اللاعب ورمز الغرفة');
                 return;
             }
 
             database.ref('rooms/' + roomCode).once('value').then((snapshot) => {
                 if (snapshot.exists()) {
+                    const players = snapshot.val().players;
+                    // FIX: Check for duplicate names before joining
+                    if (players && players[playerName]) {
+                        showErrorMessage('هذا الاسم موجود بالفعل في الغرفة. يرجى اختيار اسم آخر.');
+                        return;
+                    }
+                    
                     currentRoom = roomCode;
                     currentPlayer = { name: playerName, isHost: false };
 
@@ -680,12 +747,14 @@
                         listenToRoom();
                     }).catch(error => {
                         console.error("خطأ في الانضمام للغرفة:", error);
+                        showErrorMessage("فشل الانضمام للغرفة. يرجى المحاولة مرة أخرى.");
                     });
                 } else {
-                    console.error('الغرفة غير موجودة');
+                    showErrorMessage('الغرفة غير موجودة');
                 }
             }).catch(error => {
                 console.error("خطأ في التحقق من وجود الغرفة:", error);
+                showErrorMessage("حدث خطأ. يرجى التحقق من رمز الغرفة.");
             });
         }
 
@@ -709,7 +778,7 @@
             tempInput.select();
             document.execCommand('copy');
             document.body.removeChild(tempInput);
-            console.log('تم نسخ الرابط');
+            showToast('تم نسخ الرابط!'); // FIX: Show toast message
         }
 
         function listenToRoom() {
@@ -746,7 +815,6 @@
         function startGame() {
             if (!currentPlayer.isHost) return;
 
-            // Get the latest game state from the database
             database.ref('rooms/' + currentRoom + '/gameState').once('value').then(gameStateSnapshot => {
                 const currentGameState = gameStateSnapshot.val() || {};
                 
@@ -766,7 +834,6 @@
                         criminal: playerNames[randomIndex],
                         phase: 'teams',
                         targetCriminal: null,
-                        // --- FIX: Ensure teams object is always present ---
                         teams: currentGameState.teams || {
                             red: { detectives: [], witness: null },
                             blue: { detectives: [], witness: null }
@@ -780,27 +847,24 @@
             });
         }
 
+        // FIX: Reworked the selectRole function to correctly handle both teams and ensure data consistency.
         function selectRole(team, role) {
             if (gameState.phase !== 'teams') return;
             if (gameState.criminal === currentPlayer.name) {
-                console.error('المجرم لا يمكنه الانضمام لأي فريق!');
+                showErrorMessage('المجرم لا يمكنه الانضمام لأي فريق!');
                 return;
             }
 
-            // Get the latest teams data from the database
             database.ref('rooms/' + currentRoom + '/gameState/teams').once('value').then(teamsSnapshot => {
-                // --- FIX: Use a robust default if teams is undefined, which causes the error ---
                 const updatedTeams = teamsSnapshot.val() || {
                     red: { detectives: [], witness: null },
                     blue: { detectives: [], witness: null }
                 };
                 
-                // --- FIX: Correctly clear the player from all roles before assigning a new one ---
                 const playerName = currentPlayer.name;
 
                 // Remove player from any other team/role
                 if (updatedTeams.red) {
-                    // FIX: Ensure detectives is an array before calling filter
                     if (Array.isArray(updatedTeams.red.detectives)) {
                         updatedTeams.red.detectives = updatedTeams.red.detectives.filter(p => p !== playerName);
                     }
@@ -810,7 +874,6 @@
                 }
                 
                 if (updatedTeams.blue) {
-                    // FIX: Ensure detectives is an array before calling filter
                     if (Array.isArray(updatedTeams.blue.detectives)) {
                         updatedTeams.blue.detectives = updatedTeams.blue.detectives.filter(p => p !== playerName);
                     }
@@ -821,7 +884,6 @@
 
                 // Add player to the new team/role
                 if (role === 'detective') {
-                    // --- FIX: Ensure the detectives array exists ---
                     if (!updatedTeams[team].detectives) {
                         updatedTeams[team].detectives = [];
                     }
@@ -830,7 +892,6 @@
                     updatedTeams[team].witness = playerName;
                 }
                 
-                // Update database with the modified teams object
                 database.ref('rooms/' + currentRoom + '/gameState/teams').set(updatedTeams).catch(error => {
                     console.error("خطأ في اختيار الدور:", error);
                 });
@@ -1026,7 +1087,6 @@
             const blueMembers = document.getElementById('blueTeamMembers');
             const criminalName = document.getElementById('criminalName');
 
-            // --- إصلاح مشكلة عدم عرض اسم المجرم ---
             if (gameState.criminal) {
                 criminalName.textContent = `👤 ${gameState.criminal}`;
                 if (currentPlayer && gameState.criminal === currentPlayer.name) {
@@ -1041,12 +1101,10 @@
                 document.getElementById('criminalMessage').textContent = 'سيتم اختيار المجرم عشوائياً من اللاعبين';
             }
 
-            // --- إضافة فحص لضمان وجود كائن الفرق قبل محاولة عرضه ---
             if (gameState.teams) {
                 // Update red team display
                 let redHTML = '<div style="margin-top: 15px;">';
                 redHTML += '<h4 style="color: #dc3545; margin-bottom: 10px;">المحققون:</h4>';
-                // --- FIX: Ensure detectives array exists before iterating ---
                 if (gameState.teams.red && gameState.teams.red.detectives && gameState.teams.red.detectives.length > 0) {
                     gameState.teams.red.detectives.forEach(detective => {
                         redHTML += `<div style="background: #f8f9fa; padding: 8px; margin: 5px 0; border-radius: 5px; border-right: 3px solid #dc3545;">👮 ${detective}</div>`;
@@ -1067,7 +1125,6 @@
                 // Update blue team display
                 let blueHTML = '<div style="margin-top: 15px;">';
                 blueHTML += '<h4 style="color: #007bff; margin-bottom: 10px;">المحققون:</h4>';
-                // --- FIX: Ensure detectives array exists before iterating ---
                 if (gameState.teams.blue && gameState.teams.blue.detectives && gameState.teams.blue.detectives.length > 0) {
                     gameState.teams.blue.detectives.forEach(detective => {
                         blueHTML += `<div style="background: #f8f9fa; padding: 8px; margin: 5px 0; border-radius: 5px; border-right: 3px solid #007bff;">👮 ${detective}</div>`;
@@ -1115,7 +1172,6 @@
                         btn.style.cursor = 'pointer';
                     });
                     
-                    // Highlight current player's role
                     if (gameState.teams.red && gameState.teams.red.detectives && gameState.teams.red.detectives.includes(currentPlayer.name)) {
                         document.querySelector('[data-team="red"][data-role="detective"]').classList.add('selected');
                     } else if (gameState.teams.red && gameState.teams.red.witness === currentPlayer.name) {
@@ -1187,9 +1243,8 @@
         }
         
         function selectCriminal(index) {
-            // Check if the player is a detective in the current team
             if (!gameState.teams[gameState.currentTeam] || !gameState.teams[gameState.currentTeam].detectives.includes(currentPlayer.name)) {
-                console.error("فقط المحققون يمكنهم الاختيار!");
+                showErrorMessage("فقط المحققون يمكنهم الاختيار!");
                 return;
             }
 
@@ -1202,7 +1257,7 @@
                     selectedCriminals = selectedCriminals.filter(i => i !== index);
                 } else {
                     if (selectedCriminals.length >= gameState.maxSelections) {
-                        console.error(`يمكنك اختيار ${gameState.maxSelections} مشتبه بهم فقط`);
+                        showErrorMessage(`يمكنك اختيار ${gameState.maxSelections} مشتبه بهم فقط`);
                         return;
                     }
                     selectedCriminals.push(index);
@@ -1218,7 +1273,6 @@
             const redDisplay = document.getElementById('redTeamDisplay');
             const blueDisplay = document.getElementById('blueTeamDisplay');
             
-            // Check for team existence before updating
             if (gameState.teams && gameState.teams.red) {
                 redDisplay.innerHTML = `
                     <p><strong>المحققون:</strong> ${gameState.teams.red.detectives.join(', ')}</p>
@@ -1236,7 +1290,7 @@
 
         function finishTurn() {
             if (gameState.selectedCriminals.length !== gameState.maxSelections) {
-                console.error(`يجب اختيار ${gameState.maxSelections} مشتبه بهم`);
+                showErrorMessage(`يجب اختيار ${gameState.maxSelections} مشتبه بهم`);
                 return;
             }
             
@@ -1343,7 +1397,7 @@
 
         function newGame() {
             if (!currentPlayer.isHost) {
-                console.error('فقط المضيف يمكنه بدء لعبة جديدة');
+                showErrorMessage('فقط المضيف يمكنه بدء لعبة جديدة');
                 return;
             }
 
